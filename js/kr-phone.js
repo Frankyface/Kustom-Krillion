@@ -21,6 +21,7 @@
   let lastKey = "";
   let clockEnds = null;
   let clockTimer = 0;
+  let ratedOpen = false;
 
   const KICKERS = {
     wait: "", answer: "Your answer", reveal: "Your dive", "puffer-hold": "You have the puffer",
@@ -56,6 +57,60 @@
     box.appendChild(ul);
   }
 
+  const num = (n) => Number(n || 0).toLocaleString("en-US");
+
+  /** Place, total and the gap to the player above (Deep Dive), or hearts, meter and who floats (Puffer). */
+  function paintStanding(extra) {
+    const s = view.standing;
+    if (!s || typeof s !== "object") return;
+    const card = el("div", "kr-phone-standing");
+    card.appendChild(el("p", "kr-phone-place", String(s.place || "")));
+    if (Number.isFinite(s.points)) card.appendChild(el("p", "kr-phone-total", `${num(s.depth)} m deep · ${num(s.points)} points`));
+    if (Number.isFinite(s.hearts)) {
+      card.appendChild(el("p", "kr-phone-total", `${s.hearts} ${s.hearts === 1 ? "heart" : "hearts"} · meter ${s.meter || 0} of ${s.meterFor || 10}`));
+    }
+    if (s.line) card.appendChild(el("p", "kr-phone-gap", String(s.line)));
+    if (Array.isArray(s.top) && s.top.length) {
+      const rows = s.top.map((t) => `${t.rank}. ${t.name} — ${Number.isFinite(t.depth) ? `${num(t.depth)} m` : (t.out ? "out" : `${t.hearts} hearts`)}`);
+      card.appendChild(el("p", "kr-phone-label", "Top of the board"));
+      list(card, rows, "kr-phone-standings");
+    }
+    extra.appendChild(card);
+  }
+
+  function ratedRow(item) {
+    const li = el("li", `kr-rated-item${item.mine ? " is-mine" : ""}`);
+    li.appendChild(el("span", "kr-rated-text", String(item.text || "")));
+    if (item.mine) li.appendChild(el("span", "kr-rated-tag", item.judged ? "Your answer (judged)" : "Your answer"));
+    return li;
+  }
+
+  /** The "See the rated list" button and, once opened, the list by tier (rarest last). */
+  function paintRated(extra) {
+    const rated = view.rated;
+    if (!rated || !Array.isArray(rated.tiers)) return;
+    const btn = el("button", "kr-btn kr-btn-line kr-phone-ratedbtn", ratedOpen ? "Hide the rated list" : "See the rated list");
+    btn.type = "button";
+    btn.setAttribute("aria-expanded", ratedOpen ? "true" : "false");
+    btn.addEventListener("click", () => {
+      ratedOpen = !ratedOpen;
+      render();
+      if (ratedOpen) { const box = $("kr-phone-rated"); if (box) box.scrollIntoView({ block: "start" }); }
+    });
+    extra.appendChild(btn);
+    if (!ratedOpen) return;
+    const box = el("section", "kr-rated");
+    box.id = "kr-phone-rated";
+    box.appendChild(el("p", "kr-phone-label", String(rated.prompt || "")));
+    rated.tiers.forEach((tier) => {
+      box.appendChild(el("h3", "kr-rated-tier", String(tier.name || "")));
+      const ul = el("ul", "kr-rated-list");
+      (tier.entries || []).forEach((item) => ul.appendChild(ratedRow(item)));
+      box.appendChild(ul);
+    });
+    extra.appendChild(box);
+  }
+
   function paintExtra(extra) {
     if (view.screen === "reveal") {
       const card = el("div", `kr-phone-result${view.miss ? " is-miss" : ""}`);
@@ -65,6 +120,8 @@
       card.appendChild(el("p", "kr-phone-depth", `You are ${Number(view.depth || 0).toLocaleString("en-US")} m deep`));
       extra.appendChild(card);
     }
+    paintStanding(extra);
+    paintRated(extra);
     if ((view.screen === "puffer-watch" || view.screen === "puffer-hold" || view.screen === "out")
       && Array.isArray(view.used) && view.used.length) {
       extra.appendChild(el("p", "kr-phone-label", "Used this round"));
@@ -90,7 +147,7 @@
   function render() {
     if (!$("kr-phone-card")) return;
     const key = `${view.screen}|${view.prompt || ""}`;
-    if (key !== lastKey) { lastKey = key; $("kr-phone-text").value = ""; }
+    if (key !== lastKey) { lastKey = key; $("kr-phone-text").value = ""; ratedOpen = false; }
     const writable = has(WRITABLE, view.screen) && !view.waiting;
     $("kr-phone-card").className = `kr-phone-card is-${view.screen}${view.sent ? " is-sent" : ""}`;
     const brand = typeof view.brand === "string" && view.brand ? view.brand.slice(0, 30) : "Deep Cut";

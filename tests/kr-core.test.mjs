@@ -458,7 +458,9 @@ test("KR-U10 no phone ever sees another player's answer before its reveal, nor t
   const listWords = s.game.prompts[s.dive.index].answers.flatMap((a) => [a.text].concat(a.aliases || []));
   const check = (state, label) => {
     PLAYERS.forEach((p) => {
-      const json = JSON.stringify(K.phoneView(state, p.pid, T0)).toLowerCase();
+      const view = K.phoneView(state, p.pid, T0);
+      assert.ok(!("rated" in view) || (state.dive && state.dive.banked), `${label}: rated list sent before the prompt is banked`);
+      const json = JSON.stringify(view).toLowerCase();
       Object.keys(secrets).forEach((other) => {
         if (other === p.pid) return;
         const g = K.revealOrder(state).find((x) => x.pids.indexOf(other) >= 0);

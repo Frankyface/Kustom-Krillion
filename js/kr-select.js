@@ -221,15 +221,16 @@
     return row ? row.depth : 0;
   }
 
-  /** Puffer Party: still floating first, then hearts, then meter. */
+  /** Puffer Party: still floating first, then hearts, then meter; the eliminated by order out. */
   function pufferStandings(state) {
     const rows = state.players.map((p, i) => ({
       pid: p.pid, name: p.name, seat: i, hearts: p.hearts, meter: p.meter, out: !!p.out,
       answers: p.answers || 0, outAt: p.outAt || 0,
     }));
     rows.sort((a, b) => (Number(a.out) - Number(b.out)) || (b.hearts - a.hearts)
+      || (a.out ? 0 : b.meter - a.meter)
       || (b.outAt - a.outAt) || (b.answers - a.answers) || (a.seat - b.seat));
-    return ranked(rows, (r) => `${r.out}|${r.hearts}|${r.outAt}|${r.answers}`);
+    return ranked(rows, (r) => `${r.out}|${r.hearts}|${r.out ? 0 : r.meter}|${r.outAt}|${r.answers}`);
   }
 
   function standings(state) {
@@ -271,6 +272,105 @@
     return p ? p.name : "";
   }
 
+  /* ============ Place, total and the rated list (phones) ============ */
+
+  const RATED_MAX = 200;       // entries sent per prompt: keeps a phone's payload small
+
+  /** 1 → "1st", 2 → "2nd", 11 → "11th", 23 → "23rd". */
+  function ordinal(n) {
+    const suffixes = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return `${n}${suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]}`;
+  }
+
+  /** "3rd of 40", or "=3rd of 40" when someone shares the place. */
+  function placeText(row, rows) {
+    const tied = rows.some((r) => r.pid !== row.pid && r.rank === row.rank);
+    return { tied, place: `${tied ? "=" : ""}${ordinal(row.rank)} of ${rows.length}` };
+  }
+
+  function gapLine(me, above) {
+    if (me.rank === 1 || !above) return "";
+    const points = above.score - me.score;
+    return `${metres(points).toLocaleString("en-US")} m (${points} points) behind the player above you`;
+  }
+
+  /**
+   * Deep Dive: this player's place and total, how far behind the player above,
+   * and (once the prompt is banked) the top three. Names and scores only.
+   */
+  function diveStanding(state, pid) {
+    const rows = depthBoard(state);
+    const me = rows.find((r) => r.pid === pid);
+    if (!me) return null;
+    const t = placeText(me, rows);
+    const above = rows.filter((r) => r.score > me.score).pop() || null;
+    const lead = me.rank === 1 ? (t.tied ? "Tied for the lead" : "You’re in the lead") : "";
+    const out = { place: t.place, rank: me.rank, of: rows.length, tied: t.tied, points: me.score,
+      depth: me.depth, line: lead || gapLine(me, above),
+      gap: above ? { points: above.score - me.score, depth: above.depth - me.depth } : null };
+    if (state.dive && state.dive.banked) {
+      out.top = rows.slice(0, 3).map((r) => ({ name: r.name, rank: r.rank, depth: r.depth }));
+    }
+    return out;
+  }
+
+  /** Puffer Party: hearts, meter, who is still floating, and the standing. */
+  function pufferStanding(state, pid) {
+    const rows = pufferStandings(state);
+    const me = rows.find((r) => r.pid === pid);
+    if (!me) return null;
+    const t = placeText(me, rows);
+    const floating = alive(state).length;
+    return { place: t.place, rank: me.rank, of: rows.length, tied: t.tied, hearts: me.hearts, meter: me.meter,
+      meterFor: state.game.settings.puffer.meterForHeart, floating, out: me.out,
+      line: me.out ? `Out — ${floating} still floating` : `${floating} of ${rows.length} still floating`,
+      top: rows.slice(0, 3).map((r) => ({ name: r.name, rank: r.rank, hearts: r.hearts, out: r.out })) };
+  }
+
+  /**
+   * The prompt's rated answers by tier (rarest last), the player's own marked.
+   * `mine` lists the answers they gave; one that is off the list shows under
+   * the tier the judge gave it. ONLY for a prompt that is fully revealed.
+   */
+  function ratedList(state, index, mine) {
+    const prompt = promptOf(state, index);
+    if (!prompt) return null;
+    const entries = prompt.answers.concat(learnedFor(state, index)).slice(0, RATED_MAX);
+    const own = new Set();
+    const judged = [];
+    mine.forEach((a) => {
+      const m = matchFor(state, index, a.text);
+      if (m) own.add(m.index);
+      else if (a.tier) judged.push(a);
+    });
+    const tiers = tiersOf(state).map((t) => ({ id: t.id, name: t.name, entries: [] }));
+    const put = (tier, item) => { const row = tiers.find((t) => t.id === tier); if (row) row.entries.push(item); };
+    entries.forEach((e, i) => put(e.tier, own.has(i) ? { text: e.text, mine: true } : { text: e.text }));
+    judged.forEach((a) => put(a.tier, { text: a.text, mine: true, judged: true }));
+    return { prompt: prompt.text,
+      tiers: tiers.filter((t) => t.entries.length).map((t) => ({ name: t.name, entries: t.entries })) };
+  }
+
+  function diveRated(state, pid) {
+    const dive = state.dive;
+    const text = has(dive.answers, pid) ? dive.answers[pid] : "";
+    const r = resultFor(state, pid);
+    return ratedList(state, dive.index, text ? [{ text, tier: r && r.tier ? r.tier : null }] : []);
+  }
+
+  function pufferRated(state, pid) {
+    const mine = state.puffer.used.filter((u) => u.pid === pid).map((u) => ({ text: u.text, tier: u.tier }));
+    return ratedList(state, state.puffer.index, mine);
+  }
+
+  /** A Deep Dive standing, but only once someone has scored (no "=1st of 40" at zero). */
+  function scoredStanding(state, pid) {
+    if (state.mode !== "deepDive" || !state.dive || !depthBoard(state).some((r) => r.score > 0)) return {};
+    const standing = diveStanding(state, pid);
+    return standing ? { standing } : {};
+  }
+
   /* ============ The phones ============ */
 
   function clockLeft(state, now) {
@@ -294,13 +394,16 @@
     }
     const r = resultFor(state, pid);
     if (!r || !r.revealed) {
-      return { screen: "wait", sub: pendingReviews(state) ? "The judge is reviewing answers…"
+      const wait = { screen: "wait", sub: pendingReviews(state) ? "The judge is reviewing answers…"
         : "Answers are being revealed…", prompt: dive.text };
+      return Object.assign(wait, scoredStanding(state, pid));
     }
     const tier = r.tier ? tierById(r.tier, tiersOf(state)) : null;
-    return { screen: "reveal", prompt: dive.text, mine: r.noAnswer ? "" : r.label,
+    const view = { screen: "reveal", prompt: dive.text, mine: r.noAnswer ? "" : r.label,
       tier: tier ? tier.name : (r.noAnswer ? "No answer" : "Not valid"),
-      miss: !tier, points: r.points, depth: depth(state, pid) };
+      miss: !tier, points: r.points, depth: depth(state, pid), standing: diveStanding(state, pid) };
+    if (dive.banked) view.rated = diveRated(state, pid);     // only once the prompt is fully revealed
+    return view;
   }
 
   function pufferView(state, pid, now) {
@@ -308,6 +411,11 @@
     const me = state.players.find((p) => p.pid === pid);
     const base = { prompt: pf.text, category: pf.category, used: usedList(state),
       hearts: me.hearts, holder: nameOf(state, pf.holder) };
+    // Between rounds (and once out) a phone sees its standing; the list only after the round ends.
+    if (me.out || state.phase === "popped" || (state.phase === "pufferReady" && state.round > 1)) {
+      base.standing = pufferStanding(state, pid);
+    }
+    if (state.phase === "popped") base.rated = pufferRated(state, pid);
     if (me.out) return Object.assign(base, { screen: "out" });
     if (state.phase === "puffer" && pf.holder === pid) {
       return Object.assign(base, { screen: "puffer-hold", remainingMs: clockLeft(state, now),
@@ -359,7 +467,8 @@
     }
     if (state.mode === "puffer" && state.puffer) return pufferView(state, pid, now);
     const sub = has(WAIT_LINES, state.phase) ? WAIT_LINES[state.phase] : "Stand by.";
-    return { screen: "wait", sub, depth: state.mode === "deepDive" ? depth(state, pid) : undefined };
+    return Object.assign({ screen: "wait", sub, depth: state.mode === "deepDive" ? depth(state, pid) : undefined },
+      scoredStanding(state, pid));
   }
 
   /**
@@ -391,7 +500,7 @@
   return {
     promptOf, learnedFor, matchFor, brandOf, tiersOf, tierRank, pointsFor, tierTally,
     groups, revealOrder, reviewQueue, pendingReviews, answeredCount, resultFor,
-    metres, depthBoard, depth, pufferStandings, standings, ranked,
+    metres, depthBoard, depth, pufferStandings, standings, ranked, ordinal, diveStanding, pufferStanding, ratedList,
     alive, nextAlive, pufferSeconds, ring, nameOf, clockLeft, usedList,
     phoneView, validatePhoneMsg, phoneMaySend, PHONE_MSGS, NO_ANSWER,
   };

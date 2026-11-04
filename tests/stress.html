@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deep Cut 40-phone stress test</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #f6f7f9; margin: 0; padding: 1.6rem; }
+    h1 { font-size: 1.15rem; margin: 0 0 0.4rem; }
+    p.lede { color: #9aa3ad; font-size: 0.85rem; margin: 0 0 1rem; max-width: 64rem; }
+    #summary { font-weight: 700; margin: 0.6rem 0 1rem; }
+    #summary.ok, li[data-pass="true"] .tag { color: #35d68a; }
+    #summary.bad, li[data-pass="false"] .tag { color: #ff5a66; }
+    #results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+    #results li { padding: 0.4rem 0.7rem; border-radius: 8px; background: rgba(255,255,255,0.05); font-size: 0.86rem; }
+    #results li[data-pass="true"] { border-left: 4px solid #35d68a; }
+    #results li[data-pass="false"] { border-left: 4px solid #ff5a66; background: rgba(255,90,102,0.12); }
+    .tag { font-weight: 700; margin-right: 0.5rem; }
+    .detail { display: block; opacity: 0.75; font-size: 0.78rem; margin-top: 0.15rem; }
+    #timings { font-size: 0.8rem; border-collapse: collapse; margin-top: 1rem; }
+    #timings td, #timings th { padding: 0.15rem 0.7rem; border-bottom: 1px solid rgba(255,255,255,0.12); text-align: left; }
+    .stage { display: flex; gap: 0.6rem; margin-top: 1.4rem; align-items: flex-start; flex-wrap: wrap; }
+    #host { width: 1280px; height: 720px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: #000; }
+    .phones { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    .phones iframe { width: 320px; height: 600px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: #000; }
+  </style>
+</head>
+<body>
+  <h1>Deep Cut — stress test (<span id="count">40</span> phones, <code>?phones=N</code>)</h1>
+  <p class="lede">This page is the shell: it loads the real game page as an embedded host plus N embedded phones and speaks the
+    bridge protocol itself (no PeerJS). It runs a full Deep Dive prompt (on-list across tiers, aliases, duplicates, off-list answers
+    ruled by the judge), a second prompt, then a short Puffer Party round, and checks every phone's screen, place, total,
+    rated list and privacy at each step. Timings and the largest phone payload are recorded below.</p>
+  <p id="summary">Running…</p>
+  <ul id="results"></ul>
+  <table id="timings"><thead><tr><th>Action</th><th>Host render ms</th><th>All phones updated ms</th></tr></thead><tbody></tbody></table>
+
+  <div class="stage">
+    <iframe id="host" title="host game under test"></iframe>
+    <div class="phones" id="phones"></div>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    const HOLD = new URLSearchParams(location.search).get("hold") === "1";   // stop with the rated list open (for screenshots)
+    const N = Math.max(2, Math.min(40, Number(new URLSearchParams(location.search).get("phones")) || 40));
+    document.getElementById("count").textContent = String(N);
+
+    /* ============ Result plumbing ============ */
+
+    const results = [];
+    const timings = [];
+    let uncaught = null;
+    let maxPayload = { bytes: 0, screen: "" };
+    window.addEventListener("error", (e) => { uncaught = e.message; });
+    window.addEventListener("unhandledrejection", (e) => { uncaught = String(e.reason); });
+
+    function check(label, cond, detail) {
+      results.push({ label, pass: !!cond, detail: detail === undefined ? "" : String(detail) });
+      render();
+    }
+
+    function render() {
+      const list = document.getElementById("results");
+      list.replaceChildren();
+      for (const r of results) {
+        const li = document.createElement("li");
+        li.dataset.pass = String(r.pass);
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = r.pass ? "PASS" : "FAIL";
+        li.appendChild(tag);
+        li.appendChild(document.createTextNode(r.label));
+        if (r.detail) {
+          const d = document.createElement("span");
+          d.className = "detail";
+          d.textContent = r.detail;
+          li.appendChild(d);
+        }
+        list.appendChild(li);
+      }
+      const body = document.querySelector("#timings tbody");
+      body.replaceChildren();
+      timings.forEach((t) => {
+        const tr = document.createElement("tr");
+        [t.label, t.host.toFixed(1), t.phones === null ? "-" : t.phones.toFixed(0)].forEach((v) => {
+          const td = document.createElement("td");
+          td.textContent = v;
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+      const failed = results.filter((r) => !r.pass).length;
+      const summary = document.getElementById("summary");
+      const ok = failed === 0 && !uncaught && results.length > 0;
+      summary.className = ok ? "ok" : "bad";
+      summary.textContent = ok ? `All ${results.length} checks passed. Largest phone payload ${maxPayload.bytes} bytes (${maxPayload.screen}).`
+        : `${failed} of ${results.length} checks FAILED${uncaught ? ` — uncaught: ${uncaught}` : ""}`;
+      window.__KR_STRESS__ = { total: results.length, failed, uncaught, results, timings, maxPayload, done: !!window.__KR_STRESS_DONE__ };
+    }
+
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    async function waitFor(fn, label, timeout) {
+      const limit = timeout || 20000;
+      const start = Date.now();
+      for (;;) {
+        let value = null;
+        try { value = fn(); } catch (err) { value = null; }
+        if (value) return value;
+        if (Date.now() - start > limit) throw new Error(`timed out waiting for ${label}`);
+        await sleep(25);
+      }
+    }
+
+    /* ============ The bridge shell (00 §6) ============ */
+
+    const COLORS = ["#2ee6c5", "#ff6b57", "#8cb0ff", "#e6b800", "#c1121f"];
+    const PLAYERS = Array.from({ length: N }, (_, i) => ({
+      pid: `p${i + 1}`, name: `Phone ${i + 1}`, color: COLORS[i % COLORS.length], avatar: "🐡", connected: true, manual: false,
+    }));
+    const ROOM = { code: "KRST", players: PLAYERS };
+
+    const hostFrame = document.getElementById("host");
+    const phoneFrames = new Map();
+
+    function post(frame, msg) {
+      if (!frame || !frame.contentWindow) return;
+      frame.contentWindow.postMessage(Object.assign({ gsc: 1 }, msg), location.origin);
+    }
+
+    window.addEventListener("message", (event) => {
+      if (event.origin !== location.origin) return;
+      const d = event.data;
+      if (!d || typeof d !== "object" || d.gsc !== 1 || typeof d.t !== "string") return;
+      if (event.source === hostFrame.contentWindow) { fromHost(d); return; }
+      for (const [pid, frame] of phoneFrames) {
+        if (event.source === frame.contentWindow) { fromPhone(pid, d); return; }
+      }
+    });
+
+    function notePayload(m) {
+      const bytes = JSON.stringify(m).length;
+      if (bytes > maxPayload.bytes) maxPayload = { bytes, screen: `${m && m.screen}` };
+    }
+
+    function fromHost(d) {
+      if (d.t === "ready") { post(hostFrame, { t: "init", mode: "embed-host", room: ROOM }); return; }
+      if (d.t === "send") {
+        notePayload(d.m);
+        if (d.pid === "*") phoneFrames.forEach((f) => post(f, { t: "msg", m: d.m }));
+        else post(phoneFrames.get(d.pid), { t: "msg", m: d.m });
+      }
+    }
+
+    function fromPhone(pid, d) {
+      if (d.t === "ready") {
+        post(phoneFrames.get(pid), { t: "init", mode: "embed-player", me: PLAYERS.find((p) => p.pid === pid), room: { code: ROOM.code } });
+        return;
+      }
+      if (d.t === "send") post(hostFrame, { t: "msg", pid, m: d.m });
+    }
+
+    /* ============ Loading ============ */
+
+    const JS = ["kr-content.js", "kr-select.js", "kr-core.js", "data.js", "kr-sound.js", "kr-clock.js",
+      "kr-view.js", "kr-party.js", "kr-app.js", "kr-editor.js", "kr-room.js", "kr-phone.js"];
+    const ASSETS = JS.map((f) => `../js/${f}`).concat(["../css/kr.css", "../css/kr-phone.css",
+      "../shared/theme.css", "../shared/theme-components.css", "../shared/library.js",
+      "../shared/room-protocol.js", "../shared/room-net.js", "../shared/room-host.js", "../shared/room-player.js",
+      "../shared/bridge.js", "../sets/index.json", "fixtures/harness-game.json", "../prompts.json"]);
+    const HOST_SRC = "../index.html?embed=host&harness=1&store=stress&game=tests/fixtures/harness-game.json";
+    const PHONE_SRC = "../index.html?embed=player&harness=1&store=stress";
+    const KEYS = ["kk-state-v1-stress", "kk-draft-v1-stress"];
+
+    function loadFrame(frame, src) {
+      return new Promise((resolve) => { frame.onload = resolve; frame.src = src; });
+    }
+
+    const HW = () => hostFrame.contentWindow;
+    const HD = () => hostFrame.contentDocument;
+    const H = (id) => HD().getElementById(id);
+    const core = () => HW().KrApp.core();
+    const click = (id) => H(id).click();
+    const hostText = () => HD().body.textContent;
+    const PW = (pid) => phoneFrames.get(pid).contentWindow;
+    const PD = (pid) => phoneFrames.get(pid).contentDocument;
+    const view = (pid) => PW(pid).KrPhone.view();
+    const phoneText = (pid) => PD(pid).getElementById("screen-phone").textContent;
+    const ratedBtn = (pid) => [...PD(pid).querySelectorAll("#kr-phone-extra button")].find((b) => /rated list/.test(b.textContent));
+    const pids = () => PLAYERS.map((p) => p.pid);
+    const all = (pred) => pids().every((pid) => { try { return pred(pid); } catch (e) { return false; } });
+
+    async function bootHost() {
+      KEYS.forEach((k) => localStorage.removeItem(k));
+      await loadFrame(hostFrame, HOST_SRC);
+      await waitFor(() => HW().KrApp && HW().KrApp.state().game && HW().KrApp.state().sourceKind === "url", "host boot");
+    }
+
+    async function bootPhones() {
+      const box = document.getElementById("phones");
+      box.replaceChildren();
+      phoneFrames.clear();
+      for (const p of PLAYERS) {
+        const frame = document.createElement("iframe");
+        frame.title = `phone ${p.name}`;
+        box.appendChild(frame);
+        phoneFrames.set(p.pid, frame);
+        await loadFrame(frame, PHONE_SRC);
+      }
+      await waitFor(() => all((pid) => PW(pid).KrPhone), "phones join", 60000);
+    }
+
+    /** Run `act` on the host, record the host's synchronous render time and how long every phone takes to reach `until`. */
+    async function timed(label, act, until) {
+      const t0 = performance.now();
+      act();
+      void HD().body.offsetHeight;                       // force the host's layout so the render is counted
+      const host = performance.now() - t0;
+      let phones = null;
+      if (until) {
+        await waitFor(() => all(until), `${label}: every phone`, 30000);
+        phones = performance.now() - t0;
+      }
+      timings.push({ label, host, phones });
+      render();
+    }
+
+    function say(pid, text) {
+      PW(pid).KrPhone.type(text);
+      PW(pid).KrPhone.button().click();
+    }
+
+    /* ============ The script: who says what, and what it is worth ============ */
+
+    const TIER_POINTS = { shallows: 10, reef: 30, twilight: 60, midnight: 85, abyss: 100 };
+    // prompt 1 "Name a fruit" — answer → points. Off-list ones are ruled by the judge below.
+    const FRUIT = { apple: 10, banana: 10, mango: 30, kiwi: 60, kiwifruit: 60, lychee: 85, litchi: 85, rambutan: 100,
+      zqdurian: 85, zqjackfruit: 60, zqpomelo: 30, zqsalak: 100, zqbogus: 0 };
+    const RULINGS = { zqdurian: "midnight", zqjackfruit: "twilight", zqpomelo: "reef", zqsalak: "abyss", zqbogus: "invalid" };
+    const POOL = [].concat(
+      Array(11).fill("Apple"), Array(5).fill("Banana"), Array(4).fill("Mango"), Array(3).fill("Kiwifruit"),
+      Array(3).fill("Kiwi"), Array(3).fill("Lychee"), Array(3).fill("litchi"), Array(2).fill("Rambutan"),
+      ["Zqdurian", "zqdurian", "Zqjackfruit", "Zqpomelo", "Zqsalak", "Zqbogus"]);     // 40 answers
+    const PROMPT2 = { alpha1: 10, bravo1: 10, delta1: 60, echo1: 85, zulu1: 100 };
+    const P2WORDS = ["Alpha1", "Bravo1", "Delta1", "Echo1", "Zulu1"];
+
+    const totals = {};
+    PLAYERS.forEach((p) => { totals[p.pid] = 0; });
+
+    /** Competition ranking: equal totals share a place. */
+    function expectedPlaces() {
+      const sorted = Object.values(totals).sort((a, b) => b - a);
+      const out = {};
+      PLAYERS.forEach((p) => { out[p.pid] = sorted.findIndex((t) => t === totals[p.pid]) + 1; });
+      return out;
+    }
+
+    /* ============================================================
+       Deep Dive prompt 1
+       ============================================================ */
+
+    async function scenarioPrompt1() {
+      await bootHost();
+      await bootPhones();
+      await waitFor(() => HW().KrApp.state().setup.players.length === N, "roster from the shell");
+      check(`all ${N} phones reach the setup roster`, HW().KrApp.state().setup.players.length === N);
+      if (H("kr-set-shuffle").checked) H("kr-set-shuffle").click();
+      await timed("Start game", () => click("btn-start"), null);
+      await waitFor(() => core() && core().phase === "intro", "the intro");
+      await timed("Open prompt", () => click("btn-open"), (pid) => view(pid).screen === "answer");
+      check(`every one of ${N} phones shows the prompt, a field and a clock`,
+        all((pid) => PW(pid).KrPhone.promptText() === "Name a fruit" && !PD(pid).getElementById("kr-phone-form").classList.contains("hidden")));
+
+      const said = {};
+      const t0 = performance.now();
+      PLAYERS.forEach((p, i) => { said[p.pid] = POOL[i % POOL.length]; say(p.pid, said[p.pid]); });
+      await waitFor(() => Object.keys(core().dive.answers).length >= N - 1, "answers arriving", 30000);
+      const mid = Object.keys(core().dive.answers).length;
+      await waitFor(() => core().phase === "reveal", "the round closing", 30000);
+      timings.push({ label: `${N} phones answer (all sent to prompt closed)`, host: performance.now() - t0, phones: null });
+      check("all 40 answers reached the host (round closed by itself)", Object.keys(core().dive.answers).length === N,
+        `${mid} after the first wait`);
+      await waitFor(() => all((pid) => view(pid).screen === "wait"), "every phone waiting");
+      check("every phone is on a waiting screen once the prompt closes", true);
+      checkNoLeak(said);
+      PLAYERS.forEach((p) => { totals[p.pid] += FRUIT[said[p.pid].toLowerCase()]; });
+      return said;
+    }
+
+    /** No phone's screen or view holds another player's (different) answer; nor the host document until revealed. */
+    function checkNoLeak(said) {
+      const distinct = [...new Set(Object.values(said))];
+      const bad = [];
+      pids().forEach((pid) => {
+        const own = said[pid].toLowerCase();
+        const hay = (phoneText(pid) + JSON.stringify(view(pid))).toLowerCase();
+        distinct.forEach((a) => {
+          const w = a.toLowerCase();
+          if (w !== own && own.indexOf(w) < 0 && hay.indexOf(w) >= 0) bad.push(`${pid} holds ${a}`);
+        });
+        if (view(pid).rated) bad.push(`${pid} holds the rated list`);
+      });
+      check("NO PHONE HOLDS ANOTHER PLAYER'S ANSWER, nor the rated list, before the reveal", bad.length === 0, bad.slice(0, 5).join("; "));
+    }
+
+    async function scenarioJudge(said) {
+      const rows = () => [...HD().querySelectorAll("#kr-queue .kr-queue-item")];
+      check("the 5 distinct off-list answers wait in the judge's queue (Zqdurian + zqdurian grouped)", rows().length === 5,
+        `${rows().length} rows`);
+      await waitFor(() => all((pid) => /judge is reviewing/.test(phoneText(pid))), "judge-reviewing text");
+      check("every phone says the judge is reviewing", true);
+      await timed("Judge rules 5 off-list answers", () => {
+        rows().forEach((r) => {
+          const key = Object.keys(RULINGS).find((k) => r.textContent.toLowerCase().indexOf(k) >= 0);
+          r.querySelector(`[data-tier="${RULINGS[key]}"]`).click();
+        });
+      }, null);
+      check("reveal unlocks once the queue is ruled", H("btn-reveal").disabled === false);
+      let steps = 0;
+      let midOk = true;
+      const t0 = performance.now();
+      while (core().phase === "reveal" && steps < 40) {
+        click("btn-reveal");
+        steps += 1;
+        if (core().phase === "reveal") {
+          await sleep(20);
+          if (all((pid) => !view(pid).rated && !/See the rated list/.test(phoneText(pid))) === false) midOk = false;
+        }
+      }
+      timings.push({ label: `Reveal walk (${steps} clicks incl. bank)`, host: performance.now() - t0, phones: null });
+      check("rated list never appears on any phone mid-reveal", midOk);
+      await timed("Depth board", () => {}, (pid) => view(pid).screen === "reveal" && !!view(pid).rated);
+      check("host is on the depth board", core().phase === "depth");
+      checkScores(said, "prompt 1");
+    }
+
+    function checkScores(said, label) {
+      const places = expectedPlaces();
+      const wrong = [];
+      pids().forEach((pid) => {
+        const s = view(pid).standing;
+        const tied = Object.values(places).filter((r) => r === places[pid]).length > 1;
+        const wantPlace = `${tied ? "=" : ""}${ordinal(places[pid])} of ${N}`;
+        if (core().players.find((p) => p.pid === pid).score !== totals[pid]) wrong.push(`${pid} host score`);
+        if (!s || s.points !== totals[pid] || s.depth !== totals[pid] * 10 || s.rank !== places[pid] || s.place !== wantPlace) {
+          wrong.push(`${pid}: want ${totals[pid]}/${wantPlace} got ${s && s.points}/${s && s.place}`);
+        }
+        if (!phoneText(pid).includes(wantPlace) || !phoneText(pid).includes(`${(totals[pid] * 10).toLocaleString("en-US")} m deep`)) {
+          wrong.push(`${pid} text`);
+        }
+      });
+      check(`${label}: every phone shows the right place, total and depth`, wrong.length === 0, wrong.slice(0, 4).join("; "));
+      const lead = Math.max(...Object.values(totals));
+      const gapBad = pids().filter((pid) => {
+        const s = view(pid).standing;
+        if (totals[pid] === lead) return !/lead/.test(s.line);
+        const above = Math.min(...Object.values(totals).filter((t) => t > totals[pid]));
+        return s.gap.points !== above - totals[pid] || s.line.indexOf(`(${above - totals[pid]} points) behind`) < 0;
+      });
+      check(`${label}: gap to the player above (or lead / tied for the lead) is right on every phone`, gapBad.length === 0, gapBad.join(","));
+      check(`${label}: no phone scrolls sideways at 320 px`, all((pid) => {
+        const d = PD(pid).documentElement;
+        return d.scrollWidth <= d.clientWidth + 1;
+      }));
+    }
+
+    function ordinal(n) {
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+
+    async function scenarioRatedList(said) {
+      const sample = "p1";
+      const btn = () => ratedBtn(sample);
+      check("after the reveal every phone has a See the rated list button", all((pid) =>
+        ratedBtn(pid) && ratedBtn(pid).textContent === "See the rated list"));
+      check("the list is closed until asked", !PD(sample).getElementById("kr-phone-rated"));
+      btn().click();
+      const box = PD(sample).getElementById("kr-phone-rated");
+      check("tapping it opens the list, grouped by tier with the rarest last",
+        box && [...box.querySelectorAll(".kr-rated-tier")].map((n) => n.textContent).join(",") === "Shallows,Reef,Twilight,Midnight,Abyss",
+        box && [...box.querySelectorAll(".kr-rated-tier")].map((n) => n.textContent).join(","));
+      const mine = box && [...box.querySelectorAll(".kr-rated-item.is-mine")];
+      check("the player's own answer is highlighted (Apple, p1)", mine && mine.length === 1 && mine[0].textContent.indexOf("Apple") === 0,
+        mine && mine.map((n) => n.textContent).join("|"));
+      const tall = PD(sample).documentElement.scrollHeight > PD(sample).documentElement.clientHeight;
+      PW(sample).scrollTo(0, 100000);
+      check("the phone page scrolls naturally with the list open (320 px, 600 px frame)", tall && PW(sample).scrollY > 0,
+        `${PD(sample).documentElement.scrollHeight} px tall, scrollY ${Math.round(PW(sample).scrollY)}`);
+      const tapOk = [...box.querySelectorAll(".kr-rated-item")].every((n) => n.getBoundingClientRect().height >= 44);
+      check("every row in the list is a comfortable tap height (44 px or more)", tapOk);
+      const off = pids().find((pid) => said[pid] === "Zqdurian");
+      const offBtn = ratedBtn(off);
+      offBtn.click();
+      const j = PD(off).querySelector(".kr-rated-item.is-mine");
+      const under = j && j.closest("ul").previousElementSibling.textContent;
+      check("an off-list answer shows under the judged tier, marked as the player's own", j && under === "Midnight" && /judged/.test(j.textContent),
+        `${off}: ${under}`);
+      if (!HOLD) btn().click();
+    }
+
+    /* ============================================================
+       Deep Dive prompt 2, then the result
+       ============================================================ */
+
+    async function scenarioPrompt2() {
+      await timed("Next prompt", () => click("btn-next-prompt"), (pid) => view(pid).screen === "wait" && !!view(pid).standing);
+      check("between prompts every phone still shows its place and total", all((pid) => !!view(pid).standing && !view(pid).rated));
+      await timed("Open prompt 2", () => click("btn-open"), (pid) => view(pid).screen === "answer");
+      const said = {};
+      PLAYERS.forEach((p, i) => { said[p.pid] = P2WORDS[(i * 3) % 5]; say(p.pid, said[p.pid]); });
+      await waitFor(() => core().phase === "reveal", "prompt 2 closing", 30000);
+      PLAYERS.forEach((p) => { totals[p.pid] += PROMPT2[said[p.pid].toLowerCase()]; });
+      let steps = 0;
+      while (core().phase === "reveal" && steps < 40) { click("btn-reveal"); steps += 1; }
+      await waitFor(() => all((pid) => view(pid).screen === "reveal" && !!view(pid).rated), "prompt 2 depth board");
+      checkScores(said, "prompt 2 (cumulative)");
+      const top = view("p1").standing.top;
+      check("the depth board gives each phone the top three", all((pid) => (view(pid).standing.top || []).length === 3) && top.length === 3,
+        top.map((t) => `${t.name} ${t.depth}`).join(", "));
+      await timed("Finish to result", () => click("btn-next-prompt"), (pid) => view(pid).screen === "result");
+      check("every phone reaches the result screen", true);
+    }
+
+    /* ============================================================
+       Puffer Party: a short round
+       ============================================================ */
+
+    async function scenarioPuffer() {
+      click("btn-game-lobby");
+      click("btn-lobby-restart");
+      await waitFor(() => core() === null, "restart");
+      H("kr-mode-puffer").click();
+      if (H("kr-set-shuffle").checked) H("kr-set-shuffle").click();
+      click("btn-start");
+      await timed("Puffer: start round", () => click("btn-pstart"), (pid) => ["puffer-hold", "puffer-watch"].indexOf(view(pid).screen) >= 0);
+      check("only the holder (p1) can answer; the other phones watch", view("p1").screen === "puffer-hold"
+        && all((pid) => pid === "p1" || view(pid).screen === "puffer-watch"));
+      const prompt = core().game.prompts[core().puffer.index];
+      const abyss = prompt.answers.find((a) => a.tier === "abyss").text;
+      const shallow = prompt.answers.find((a) => a.tier === "shallows").text;
+      say("p1", abyss);
+      await waitFor(() => core().puffer.holder === "p2", "pass to p2");
+      await waitFor(() => view("p2").screen === "puffer-hold", "p2 holding");
+      say("p2", shallow);
+      await waitFor(() => core().puffer.holder === "p3", "pass to p3");
+      await timed("Puffer: pop", () => click("btn-pop"), (pid) => !!view(pid).standing && !!view(pid).rated);
+      check("after the pop every phone has hearts/meter standing and the list opt-in",
+        all((pid) => view(pid).standing.hearts >= 0 && view(pid).standing.floating === N && view(pid).standing.of === N));
+      const s1 = view("p1").standing;
+      const s2 = view("p2").standing;
+      const s3 = view("p3").standing;
+      const s9 = view("p9") ? view("p9").standing : view("p4").standing;
+      check("Puffer standing: hearts then meter (p1 1st, p2 2nd, others tied, popped p3 last)",
+        s1.place === `1st of ${N}` && s1.meter === 4 && s2.place === `2nd of ${N}`
+        && s9.place === `=3rd of ${N}` && s3.place === `${ordinal(N)} of ${N}` && s3.hearts === 1,
+        `${s1.place} ${s2.place} ${s9.place} ${s3.place}`);
+      check("phone shows hearts, meter and how many are still floating",
+        /2 hearts · meter 4 of 10/.test(phoneText("p1")) && new RegExp(`${N} of ${N} still floating`).test(phoneText("p1")), phoneText("p1").slice(0, 200));
+      check("Puffer: the round's rated list is offered once the round ends and highlights p1's answer", (() => {
+        const b = ratedBtn("p1");
+        if (!b) return false;
+        b.click();
+        return PD("p1").querySelectorAll(".kr-rated-item.is-mine").length === 1;
+      })());
+      await timed("Puffer: next round", () => click("btn-pnext"), (pid) => !!view(pid).standing && !view(pid).rated);
+      check("next round: rated list gone, standing kept", true);
+    }
+
+    /* ============ Gates ============ */
+
+    async function scenarioGates() {
+      const files = JS.map((f) => `../js/${f}`).concat(["../css/kr-phone.css", "stress.html"]);
+      const texts = await Promise.all(files.map((u) => fetch(u, { cache: "no-store" }).then((r) => r.text())));
+      const banned = new RegExp(["\\.inner" + "HTML", "insertAdjacent" + "HTML", "outer" + "HTML\\s*=", "document\\.wri" + "te",
+        "ev" + "al\\(", "new Func" + "tion"].join("|"));
+      check("no inner-HTML family, string evaluation or document writes in the game or this page", texts.every((t) => !banned.test(t)));
+      check("every file is under 800 lines", texts.every((t) => t.split("\n").length < 800),
+        texts.map((t, i) => `${files[i].split("/").pop()}:${t.split("\n").length}`).join(" "));
+      check("largest single phone payload stays small (under 6000 bytes)", maxPayload.bytes < 6000, `${maxPayload.bytes} bytes (${maxPayload.screen})`);
+    }
+
+    (async function run() {
+      try {
+        await Promise.all(ASSETS.map((u) => fetch(u, { cache: "reload" }).catch(() => null)));
+        await fetch(HOST_SRC, { cache: "reload" }).catch(() => null);
+        const said = await scenarioPrompt1();
+        await scenarioJudge(said);
+        await scenarioRatedList(said);
+        if (HOLD) { window.__KR_STRESS_DONE__ = true; render(); return; }
+        await scenarioPrompt2();
+        await scenarioPuffer();
+        await scenarioGates();
+      } catch (err) {
+        uncaught = err && err.message ? err.message : String(err);
+        check("stress run completed", false, uncaught);
+      }
+      window.__KR_STRESS_DONE__ = true;
+      render();
+    })();
+  })();
+  </script>
+</body>
+</html>

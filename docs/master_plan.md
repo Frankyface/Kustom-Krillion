@@ -28,6 +28,19 @@ Source: Game-Show-Central `games/krillion` @ 9c9d5ec (spec there:
 Exclusions: global answer database, accounts, daily puzzle, reverse mode,
 adding/removing tiers from the UI (count stays as in the file; 2–6 via JSON).
 
+## Round 2 scope (user request 2026-11-04, same automatic mode)
+User's list: (1) load it with 40 accounts and make sure the board holds up;
+(2) score and place on phones between rounds; (3) a floating-down animation,
+and let the host upload an image so the icon isn't the default creature;
+(4) more charm so it doesn't feel "vibe coded"; (5) phones can scroll and see
+the rated list; (6) fix hosting on mobile. Push to Kustom-Krillion when done.
+
+Interpretations (PM): 40 = game and room cap raised to 40 and every screen laid
+out for 40; the rated list reaches phones only after a prompt is fully revealed
+(the no-leak rule stays); the uploaded image replaces the game's diver icon for
+every player's marker (validated image data URL, size-capped), stored with the
+setup; "mobile hosting" = running the host screen on a phone or tablet.
+
 ## Architecture
 Static site at repo root. `index.html` = host + phone page. `shared/` = the
 GSC room transport (`room-*.js`), `bridge.js` SDK (standalone mode),
@@ -41,6 +54,7 @@ GSC room transport (`room-*.js`), `bridge.js` SDK (standalone mode),
 | S1 Port | F001 standalone port | [staging/s1-port/overview.md](../staging/s1-port/overview.md) |
 | S2 Branding | F002 switchable name & tiers | [staging/s2-branding/overview.md](../staging/s2-branding/overview.md) |
 | S3 Delivery | F003 docs, push, Pages | [staging/s3-delivery/overview.md](../staging/s3-delivery/overview.md) |
+| S4 Round 2 (user request 2026-11-04) | F004–F009 | [staging/s4-round2/overview.md](../staging/s4-round2/overview.md) |
 
 ## Project acceptance
 1. All unit tests pass; loopback harness passes.

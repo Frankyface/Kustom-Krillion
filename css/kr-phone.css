@@ -9,9 +9,11 @@ body.player-mode #kr-lobby-modal,
 body.player-mode #gsc-splash,
 body.player-mode .kr-screen:not(.kr-phone) { display: none !important; }
 
-body.player-mode { min-height: 100vh; }
-
-.kr-phone { padding: 16px; gap: 12px; overflow-y: auto; }
+/* The whole page scrolls naturally: no fixed heights, no hidden overflow (dvh-safe). */
+html:has(body.player-mode) { height: auto; overflow-y: auto; }
+body.player-mode { min-height: 100vh; min-height: 100dvh; height: auto; overflow: visible; }
+body.player-mode #kr-main { min-height: auto; min-width: 0; }
+body.player-mode .kr-phone { padding: 16px 16px max(24px, env(safe-area-inset-bottom)); gap: 12px; overflow: visible; min-height: auto; min-width: 0; flex: 1 1 0; }
 
 .kr-phone-card {
   display: flex; flex-direction: column; gap: 12px;
@@ -59,3 +61,26 @@ body.player-mode { min-height: 100vh; }
 }
 
 #gsc-join input, #gsc-join button { min-height: 56px; font-size: 18px; max-width: 100%; }
+
+/* ============ Place, total and the rated list ============ */
+
+.kr-phone-standing {
+  display: flex; flex-direction: column; gap: 6px; padding: 16px;
+  background: var(--kr-surface); border: 1px solid var(--kr-line-strong); border-radius: var(--kr-radius);
+}
+.kr-phone-place { margin: 0; font-family: var(--font-display); font-size: 32px; line-height: 1.1; color: var(--kr-accent); }
+.kr-phone-total { margin: 0; font-size: 18px; font-weight: 600; }
+.kr-phone-gap { margin: 0; color: var(--kr-dim); font-size: 16px; line-height: 1.4; }
+
+.kr-phone-ratedbtn { min-height: 56px; width: 100%; font-size: 18px; }
+.kr-rated { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; scroll-margin-top: 8px; }
+.kr-rated-tier { margin: 12px 0 0; font-size: 18px; font-weight: 700; color: var(--kr-accent); }
+.kr-rated-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.kr-rated-item {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px;
+  min-height: 48px; padding: 8px 12px; font-size: 17px;
+  background: var(--kr-surface); border: 1px solid var(--kr-line); border-radius: var(--kr-radius-sm);
+}
+.kr-rated-item.is-mine { border-color: var(--kr-accent); border-width: 2px; font-weight: 700; }
+.kr-rated-text { overflow-wrap: anywhere; min-width: 0; }
+.kr-rated-tag { font-size: 14px; font-weight: 600; color: var(--kr-accent); }

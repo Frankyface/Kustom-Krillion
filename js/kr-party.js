@@ -15,6 +15,8 @@ const KrParty = (function () {
   const core = () => window.KrCore;
   const app = () => window.KrApp;
 
+  const OVAL_MAX = 8;   // more seats than this and the oval's seats would touch
+
   /** Seat positions round an ellipse, the first seat at twelve o'clock. */
   function seatPosition(i, n) {
     const angle = (-90 + (360 * i) / n) * (Math.PI / 180);
@@ -32,20 +34,27 @@ const KrParty = (function () {
     const ring = $("kr-ring");
     [...ring.querySelectorAll(".kr-seat")].forEach((n) => n.remove());
     const seats = core().ring(c);
+    // Many seats, or a narrow screen: a scrolling grid of small seats instead of the oval.
+    const compact = window.KrView.isCompact(seats.length, OVAL_MAX);
+    ring.classList.toggle("is-compact", compact);
     const max = c.game.settings.puffer.maxHearts;
     const need = c.game.settings.puffer.meterForHeart;
     seats.forEach((s, i) => {
-      const pos = seatPosition(i, seats.length);
       const seat = el("div", `kr-seat${s.holder ? " is-holder" : ""}${s.out ? " is-out" : ""}`);
       seat.dataset.pid = s.pid;
-      seat.style.left = `${pos.left}%`;
-      seat.style.top = `${pos.top}%`;
+      seat.title = s.name;
+      if (!compact) {
+        const pos = seatPosition(i, seats.length);
+        seat.style.left = `${pos.left}%`;
+        seat.style.top = `${pos.top}%`;
+      }
       seat.appendChild(el("span", "kr-seat-name", s.name));
       seat.appendChild(heartsRow(s.hearts, max));
       seat.appendChild(el("span", "kr-seat-status", s.out ? "out"
         : `${s.hearts} ${s.hearts === 1 ? "heart" : "hearts"} · ${s.meter}/${need}`));
       if (s.holder && !s.out) seat.appendChild(el("span", "kr-seat-status", "has the puffer"));
       ring.appendChild(seat);
+      if (compact && s.holder && seat.scrollIntoView) seat.scrollIntoView({ block: "nearest" });
     });
   }
 

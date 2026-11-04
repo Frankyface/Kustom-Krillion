@@ -69,6 +69,21 @@ const KrView = (function () {
     return Number(n || 0).toLocaleString("en-US");
   }
 
+  /* ============ Dense layouts (many players, or a narrow screen) ============ */
+
+  const DENSE_PLAYERS = 12;   // above this the reef, the ring and the chips switch to their compact layouts
+  const narrowQuery = typeof window.matchMedia === "function" ? window.matchMedia("(max-width: 900px)") : null;
+
+  /** True on a phone or small tablet held upright, where lanes and the ring cannot be drawn side by side. */
+  function isNarrow() {
+    return !!(narrowQuery && narrowQuery.matches);
+  }
+
+  /** Whether a reef or ring of n seats uses the compact layout right now. */
+  function isCompact(n, limit) {
+    return n > (limit || DENSE_PLAYERS) || isNarrow();
+  }
+
   /* ============ Shared pieces ============ */
 
   /** One button per tier plus Not valid; `current` gets aria-pressed. */
@@ -99,30 +114,19 @@ const KrView = (function () {
     const seated = rows.slice().sort((a, b) => a.seat - b.seat);
     const deepest = rows.reduce((m, r) => Math.max(m, r.depth), 0);
     const scale = Math.max(500, Math.ceil(deepest / 250) * 250);
-    const sig = seated.map((r) => `${r.pid}:${r.name}`).join("|");
+    const compact = isCompact(seated.length);
+    const sig = `${compact ? "c" : "v"}#${seated.map((r) => `${r.pid}:${r.name}`).join("|")}`;
     if (box.dataset.sig !== sig) {
       // A new line-up: build the lanes once; later renders move them in place,
       // which is what lets the markers glide down instead of jumping.
-      box.replaceChildren();
-      box.appendChild(el("div", "kr-reef-axis"));
-      const lanes = el("div", "kr-reef-lanes");
-      seated.forEach((r) => {
-        const lane = el("div", "kr-lane");
-        lane.dataset.pid = r.pid;
-        lane.appendChild(el("span", "kr-lane-name", r.name));
-        const water = el("div", "kr-lane-water");
-        const line = el("div", "kr-lane-line");
-        line.appendChild(el("span", "kr-lane-marker"));
-        water.appendChild(line);
-        lane.appendChild(water);
-        lanes.appendChild(lane);
-      });
-      box.appendChild(lanes);
+      box.classList.toggle("is-compact", compact);
+      buildLanes(box, seated);
       box.dataset.sig = sig;
     }
     const axis = box.querySelector(".kr-reef-axis");
     axis.replaceChildren();
-    [0, scale / 2, scale].forEach((m) => axis.appendChild(el("span", null, `${numberText(m)} m`)));
+    if (compact) axis.appendChild(el("span", null, `Full bar = ${numberText(scale)} m`));
+    else [0, scale / 2, scale].forEach((m) => axis.appendChild(el("span", null, `${numberText(m)} m`)));
     seated.forEach((r) => {
       const lane = box.querySelector(`.kr-lane[data-pid="${CSS.escape(r.pid)}"]`);
       if (!lane) return;
@@ -132,6 +136,25 @@ const KrView = (function () {
     });
   }
 
+  function buildLanes(box, seated) {
+    box.replaceChildren();
+    box.appendChild(el("div", "kr-reef-axis"));
+    const lanes = el("div", "kr-reef-lanes");
+    seated.forEach((r) => {
+      const lane = el("div", "kr-lane");
+      lane.dataset.pid = r.pid;
+      lane.title = r.name;
+      lane.appendChild(el("span", "kr-lane-name", r.name));
+      const water = el("div", "kr-lane-water");
+      const line = el("div", "kr-lane-line");
+      line.appendChild(el("span", "kr-lane-marker"));
+      water.appendChild(line);
+      lane.appendChild(water);
+      lanes.appendChild(lane);
+    });
+    box.appendChild(lanes);
+  }
+
   /* ============ Setup ============ */
 
   function renderPlayers(state) {
@@ -139,7 +162,9 @@ const KrView = (function () {
     list.replaceChildren();
     state.setup.players.forEach((p) => {
       const li = el("li", "kr-player");
-      li.appendChild(el("span", "kr-player-name", p.name));
+      const who = el("span", "kr-player-name", p.name);
+      who.title = p.name;
+      li.appendChild(who);
       li.appendChild(el("span", "kr-player-kind", p.manual ? "host types" : "phone"));
       const rm = el("button", "kr-btn kr-btn-quiet kr-btn-sm", "Remove");
       rm.type = "button";
@@ -315,9 +340,11 @@ const KrView = (function () {
     setText("kr-answered", `${count.done} / ${count.total} answered`);
     const chips = $("kr-chips");
     chips.replaceChildren();
+    chips.classList.toggle("is-dense", c.players.length > DENSE_PLAYERS);
     c.players.forEach((p) => {
       const done = Object.prototype.hasOwnProperty.call(c.dive.answers, p.pid);
       const li = el("li", `kr-chip-player${done ? " is-done" : ""}`);
+      li.title = `${p.name}: ${done ? "answered" : "waiting"}`;
       li.appendChild(el("span", "kr-chip-name", p.name));
       li.appendChild(el("span", "kr-chip-state", done ? "answered" : "waiting"));
       chips.appendChild(li);
@@ -386,6 +413,9 @@ const KrView = (function () {
     const li = el("li", `kr-group${shown ? " is-shown" : ""}${top ? " is-top" : ""}`
       + `${shown && !g.tier ? " is-miss" : ""}`);
     li.dataset.place = String(place);
+    // Many players on one answer: the card takes two columns, or the whole row.
+    if (shown && g.names.length >= 12) li.classList.add("is-full");
+    else if (shown && g.names.length >= 5) li.classList.add("is-wide");
     if (!shown) {
       li.appendChild(el("span", "kr-group-hidden", `${g.count} ${g.count === 1 ? "player" : "players"}`));
       return li;
@@ -456,6 +486,9 @@ const KrView = (function () {
       groups.appendChild(card);
     });
     groups.classList.toggle("is-tight", order.length > 8);
+    groups.classList.toggle("is-dense", order.length > 16 || c.players.length > DENSE_PLAYERS);
+    const newest = groups.querySelector(".is-new");
+    if (newest && newest.scrollIntoView) newest.scrollIntoView({ block: "nearest" });
     setText("kr-tally", c.dive.revealed ? tallyText(c, true) : "");
     renderList(state, c);
     renderReef($("kr-reef"), core().depthBoard(c));
@@ -486,7 +519,9 @@ const KrView = (function () {
     const winners = rows.filter((r) => c.winners.indexOf(r.pid) >= 0);
     const name = core().brandOf(c).name;
     setText("kr-result-kicker", `${name} · ${puffer ? "Puffer Party — last one floating" : "Deep Dive — deepest diver"}`);
-    setText("kr-winner", winners.map((r) => r.name).join(" & ") || "No winner");
+    // A big tie would not fit as a headline; the standings below name everyone.
+    setText("kr-winner", winners.length > 3 ? `${winners.length}-way tie`
+      : (winners.map((r) => r.name).join(" & ") || "No winner"));
     const top = winners[0];
     setText("kr-winner-sub", !top ? "" : (puffer
       ? `${top.hearts} ${top.hearts === 1 ? "heart" : "hearts"} left${winners.length > 1 ? " each" : ""}.`
@@ -494,9 +529,11 @@ const KrView = (function () {
     const list = $("kr-standings");
     list.replaceChildren();
     rows.forEach((r) => {
-      const li = el("li", "kr-standing");
+      const isWinner = c.winners.indexOf(r.pid) >= 0;
+      const li = el("li", `kr-standing${r.rank <= 3 ? " is-podium" : ""}${isWinner ? " is-winner" : ""}`);
       li.appendChild(el("span", "kr-standing-rank", String(r.rank)));
       li.appendChild(el("span", "kr-standing-name", r.name));
+      if (isWinner) li.appendChild(el("span", "kr-badge", "winner"));
       li.appendChild(el("span", "kr-standing-value", puffer
         ? (r.out ? "out" : `${r.hearts} ${r.hearts === 1 ? "heart" : "hearts"}`) : `${numberText(r.depth)} m`));
       list.appendChild(li);
@@ -525,13 +562,24 @@ const KrView = (function () {
     // The label rewrite wipes the icon, so it goes back on every render (docs/21 rule 9).
     if (window.GSCIcons) window.GSCIcons.prepend(sound, on ? "sound" : "sound-off");
     sound.setAttribute("aria-pressed", String(on));
+    // On a narrow bar the words are hidden, so the label carries the name.
+    sound.setAttribute("aria-label", on ? "Sound" : "Sound off");
+    sound.title = on ? "Sound" : "Sound off";
     show($("kr-lobby-modal"), !!state.lobbyOpen);
     $("btn-game-lobby").disabled = !state.core && !state.resumable;
     if (screen === "setup" && state.core === null) renderSetup(state);
     else RENDERERS[screen](state);
   }
 
-  return { render, screenFor, brandFor, renderReef, tierButtons, rememberButton, renderList, tierName, numberText };
+  // Crossing the phone/desktop width re-lays the reef and the ring in their other form.
+  if (narrowQuery && narrowQuery.addEventListener) {
+    narrowQuery.addEventListener("change", () => { if (app() && app().state) render(app().state()); });
+  }
+
+  return {
+    render, screenFor, brandFor, renderReef, tierButtons, rememberButton, renderList, tierName, numberText,
+    isCompact, isNarrow, DENSE_PLAYERS,
+  };
 })();
 
 window.KrView = KrView;

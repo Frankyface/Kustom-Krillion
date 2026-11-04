@@ -31,6 +31,7 @@ body {
   font-family: var(--font-ui);
   font-size: 16px;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -46,7 +47,7 @@ body {
   border-bottom: 1px solid var(--kr-line);
   flex: 0 0 auto;
 }
-.kr-bar-title { margin: 0; font-size: 18px; font-weight: 600; }
+.kr-bar-title { margin: 0; font-size: 18px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kr-bar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 /* Toolbar: Sound · Editor · Game lobby, icon + label, 44 px (docs/21 rule 9). */
 .kr-bar-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; }
@@ -101,7 +102,7 @@ body {
 .kr-hint { margin: 6px 0 0; color: var(--kr-dim); font-size: 15px; line-height: 1.45; }
 .kr-quiet { color: var(--kr-mute); font-weight: 400; }
 .kr-count { color: var(--kr-mute); font-weight: 400; margin-left: 4px; }
-.kr-mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.kr-mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere; word-break: break-all; }
 .kr-warn { min-height: 1.4em; }
 .kr-error {
   margin: 8px 20px 0; padding: 8px 12px; color: var(--kr-coral); font-size: 15px;
@@ -121,6 +122,7 @@ body {
   gap: 16px;
   padding: 20px 28px;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 .kr-center { justify-content: center; align-items: center; text-align: center; }
@@ -144,8 +146,10 @@ body {
   background: var(--kr-stage);
   border: 1px solid var(--kr-line-strong);
   border-radius: var(--kr-radius-sm);
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 10px;
+  max-width: 100%;
+  min-width: 0;
 }
 .kr-field:focus-visible { outline: 2px solid var(--kr-accent); outline-offset: 1px; }
 .kr-secret { -webkit-text-security: disc; }
@@ -156,13 +160,16 @@ body {
 .kr-setup { overflow-y: auto; }
 .kr-setup-head { display: flex; flex-direction: column; gap: 8px; }
 .kr-setup-cols { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 16px; }
-.kr-player-list { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.kr-player-list {
+  list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 4px;
+  max-height: min(44dvh, 380px); overflow-y: auto;
+}
 .kr-player {
   display: flex; align-items: center; gap: 10px; padding: 4px 0 4px 10px;
   border-bottom: 1px solid var(--kr-line);
 }
-.kr-player-name { flex: 1; font-weight: 600; }
-.kr-player-kind { color: var(--kr-mute); font-size: 15px; }
+.kr-player-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kr-player-kind { color: var(--kr-mute); font-size: 15px; white-space: nowrap; }
 .kr-modes { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .kr-mode { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; color: var(--kr-dim); line-height: 1.4; }
 .kr-mode strong { color: var(--kr-ink); font-weight: 600; }
@@ -192,7 +199,11 @@ body {
 .kr-clock-track { width: 100%; height: 4px; background: var(--kr-line); border-radius: 2px; overflow: hidden; }
 .kr-clock-bar { height: 100%; width: 100%; background: var(--kr-accent); }
 .kr-answered { margin: 0; color: var(--kr-dim); font-size: 18px; }
-.kr-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.kr-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+/* Many players: a compact wrapping grid, one chip per cell, scrolling inside its own box. */
+.kr-chips.is-dense { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 6px; }
+.kr-chips.is-dense .kr-chip-player { min-width: 0; padding: 4px 10px; }
+.kr-chip-name, .kr-chip-state { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kr-chip-player {
   display: flex; flex-direction: column; gap: 2px; min-width: 128px; padding: 8px 12px;
   background: var(--kr-surface); border: 1px solid var(--kr-line); border-radius: var(--kr-radius);
@@ -204,7 +215,7 @@ body {
 .kr-type { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: auto; }
 .kr-type .kr-check { margin: 0; }
 .kr-type-label { color: var(--kr-dim); font-size: 15px; }
-.kr-type-text { width: 300px; }
+.kr-type-text { width: 300px; max-width: 100%; }
 
 /* ============ Reveal ============ */
 
@@ -240,16 +251,23 @@ body {
 .kr-groups {
   flex: 1 1 auto; list-style: none; margin: 0; padding: 0; min-height: 0;
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(88px, auto);
-  gap: 10px; align-content: start; overflow: hidden;
+  gap: 10px; align-content: start; overflow-y: auto; overflow-x: hidden;
 }
 .kr-groups.is-tight { grid-auto-rows: minmax(70px, auto); }
+/* Many answers: more, smaller cards; a card with many names takes more room. */
+.kr-groups.is-dense { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); grid-auto-rows: minmax(58px, auto); gap: 8px; }
+.kr-groups.is-dense .kr-group { padding: 6px 10px; }
+.kr-groups.is-dense .kr-group-answer { font-size: 17px; }
+.kr-groups.is-dense .kr-group-names { font-size: 14px; }
+.kr-group.is-wide { grid-column: span 2; }
+.kr-group.is-full { grid-column: 1 / -1; }
 .kr-group {
   display: flex; flex-direction: column; gap: 4px; padding: 10px 12px;
   background: var(--kr-surface); border: 1px solid var(--kr-line); border-radius: var(--kr-radius);
 }
 .kr-group-hidden { margin: auto; color: var(--kr-mute); font-size: 15px; }
 .kr-group-answer { font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
-.kr-group-names { color: var(--kr-dim); font-size: 15px; }
+.kr-group-names { color: var(--kr-dim); font-size: 15px; overflow-wrap: anywhere; }
 .kr-group-foot { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
 .kr-group-points { font-weight: 600; font-variant-numeric: tabular-nums; }
 .kr-group.is-miss .kr-group-points { color: var(--kr-coral); }
@@ -276,7 +294,7 @@ body {
   background: var(--kr-surface); border: 1px solid var(--kr-line); border-radius: var(--kr-radius); padding: 10px 14px;
 }
 .kr-reef-strip { flex: 0 0 150px; }
-.kr-reef-full { flex: 1 1 auto; }
+.kr-reef-full { flex: 1 1 auto; min-height: 0; }
 .kr-reef-axis {
   display: flex; flex-direction: column; justify-content: space-between; padding-top: 24px;
   color: var(--kr-mute); font-size: 15px; font-variant-numeric: tabular-nums; flex: 0 0 auto; text-align: right;
@@ -299,18 +317,54 @@ body {
 .kr-reef-full .kr-lane-water { margin-bottom: 18px; }
 .kr-reef-strip .kr-lane-water { margin-bottom: 14px; }
 
+/* Compact reef (many players, or a narrow screen): one horizontal bar per player,
+   still in seat order, so a reveal reads as bars growing and names never shuffle.
+   Names truncate (the full name is the lane's title); the depth sits at the bar's end. */
+.kr-reef.is-compact { flex-direction: column; gap: 8px; overflow-y: auto; }
+.kr-reef.is-compact .kr-reef-axis { flex-direction: row; justify-content: flex-start; padding: 0; text-align: left; font-size: 15px; }
+.kr-reef.is-compact .kr-reef-lanes {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 20px;
+  align-content: start; flex: 0 0 auto;
+}
+.kr-reef.is-compact .kr-lane { flex-direction: row; align-items: center; gap: 8px; min-height: 24px; }
+.kr-reef.is-compact .kr-lane-name { flex: 0 0 9em; text-align: left; }
+.kr-reef.is-compact .kr-lane-water {
+  flex: 1 1 auto; margin: 0 80px 0 0; height: 14px; border: 1px solid var(--kr-line); border-radius: 3px;
+}
+.kr-reef.is-compact .kr-lane-water::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--kr-line); }
+.kr-reef.is-compact .kr-lane-line {
+  left: 0; top: 0; bottom: 0; margin: 0; height: auto; min-width: 2px; width: calc(var(--d, 0) * 1%); border-radius: 2px;
+}
+.kr-reef.is-compact .kr-lane-marker {
+  left: 100%; bottom: auto; top: 50%; transform: translate(8px, -50%); padding: 0; border: 0; background: none;
+}
+.kr-reef.is-compact .kr-lane.is-lead .kr-lane-name { color: var(--kr-accent); }
+.kr-reef.is-compact .kr-lane.is-lead .kr-lane-name::before {
+  content: ""; display: inline-block; width: 0.6em; height: 0.6em; margin-right: 6px; background: currentColor;
+}
+.kr-reef-strip.is-compact { flex: 0 0 auto; max-height: 140px; }
+.kr-reef-full.is-compact { min-height: 0; }
+
 /* ============ Depth board and result ============ */
 
 .kr-depth-head { display: flex; flex-direction: column; gap: 4px; }
-.kr-standings { list-style: none; margin: 8px 0 0; padding: 0; width: min(560px, 100%); display: flex; flex-direction: column; }
+.kr-standings {
+  list-style: none; margin: 8px 0 0; padding: 0; width: min(560px, 100%); display: flex; flex-direction: column;
+  flex: 0 1 auto; min-height: 0; overflow-y: auto;
+}
 .kr-standing { display: flex; gap: 16px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--kr-line); }
 .kr-standing-rank { width: 2ch; color: var(--kr-mute); font-variant-numeric: tabular-nums; }
-.kr-standing-name { flex: 1; text-align: left; font-weight: 600; font-size: 18px; }
+.kr-standing-name { flex: 1; min-width: 0; text-align: left; font-weight: 600; font-size: 18px; overflow-wrap: anywhere; }
+/* The podium: the first three places are set larger; the list below scrolls inside the box. */
+.kr-standing.is-podium { padding: 10px 0; }
+.kr-standing.is-podium .kr-standing-name { font-size: 22px; }
+.kr-standing.is-winner .kr-standing-name { color: var(--kr-accent); }
+.kr-standing .kr-badge { color: var(--kr-accent); border-color: var(--kr-accent); }
 .kr-standing-value { color: var(--kr-dim); font-variant-numeric: tabular-nums; }
 
 /* ============ Puffer Party ============ */
 
-.kr-puffer { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; }
+.kr-puffer { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 20px; }
 .kr-ring {
   position: relative; min-height: 0;
   border: 1px solid var(--kr-line); border-radius: var(--kr-radius); background: var(--kr-surface);
@@ -334,7 +388,26 @@ body {
 .kr-hearts { display: flex; gap: 4px; }
 .kr-heart { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--kr-coral); }
 .kr-heart.is-full { background: var(--kr-coral); }
-.kr-puffer-side { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.kr-puffer-side { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+/* Many seats (or a narrow screen): the ring becomes a scrolling grid of small seats in seat order,
+   the clock and the holder pinned at the top, the holder's seat outlined and labelled. */
+.kr-ring.is-compact {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; padding: 0 8px 8px;
+  overflow-y: auto; align-content: start;
+}
+.kr-ring.is-compact .kr-ring-centre {
+  position: sticky; top: 0; left: auto; z-index: 2; grid-column: 1 / -1; transform: none; width: auto;
+  flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px 18px; padding: 8px 0;
+  background: var(--kr-surface); border-bottom: 1px solid var(--kr-line);
+}
+.kr-ring.is-compact .kr-clock { font-size: 56px; }
+.kr-ring.is-compact .kr-seat {
+  position: static; transform: none; min-width: 0; max-width: none; flex-direction: row; flex-wrap: wrap;
+  align-items: center; justify-content: flex-start; gap: 2px 8px; padding: 4px 8px; text-align: left;
+}
+.kr-ring.is-compact .kr-seat-name { flex: 1 1 100%; }
+.kr-ring.is-compact .kr-seat-status { white-space: normal; }
+.kr-hearts { flex-wrap: wrap; }
 .kr-notice { margin: 0; min-height: 1.4em; font-size: 18px; }
 .kr-notice[data-kind="used"], .kr-notice[data-kind="invalid"], .kr-notice[data-kind="pop"] { color: var(--kr-coral); }
 .kr-notice[data-kind="pass"], .kr-notice[data-kind="heart"] { color: var(--kr-accent); }
@@ -342,7 +415,7 @@ body {
 .kr-pending-text { margin: 0; font-weight: 600; }
 .kr-used { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
 .kr-used-item { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid var(--kr-line); }
-.kr-used-text { flex: 1; font-weight: 600; }
+.kr-used-text { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
 
 /* ============ Editor ============ */
 
@@ -361,7 +434,9 @@ body {
 }
 .kr-ed-list button[aria-current="true"] { background: var(--kr-surface-2); box-shadow: inset 3px 0 0 var(--kr-accent); }
 .kr-ed-list .kr-ed-bad { color: var(--kr-coral); }
-.kr-ed-table { width: 100%; border-collapse: collapse; }
+.kr-ed-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.kr-ed-table th:nth-child(3) { width: 10em; }   /* the tier name must never truncate */
+.kr-ed-table th:nth-child(4) { width: 6.5em; }
 .kr-ed-table th { text-align: left; font-size: 15px; font-weight: 600; color: var(--kr-dim); padding: 4px; }
 .kr-ed-table td { padding: 3px 4px; }
 .kr-ed-table .kr-field { width: 100%; }
@@ -374,16 +449,16 @@ body {
 
 .kr-modal-backdrop {
   position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px;
-  background: rgba(1, 6, 12, 0.8);
+  background: rgba(1, 6, 12, 0.8); overflow-y: auto;
 }
 .kr-modal {
-  width: min(500px, 100%); padding: 22px; background: var(--kr-surface);
+  width: min(500px, 100%); margin: auto; padding: 22px; background: var(--kr-surface);
   border: 1px solid var(--kr-line-strong); border-radius: var(--kr-radius);
 }
 .kr-modal-title { margin: 0 0 8px; font-size: 22px; font-weight: 600; }
 .kr-modal-body { margin: 0 0 16px; color: var(--kr-dim); line-height: 1.5; }
 .kr-splash {
-  position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  position: fixed; inset: 0; z-index: 90; pointer-events: none; padding: 16px; text-align: center; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   background: var(--kr-stage);
 }
@@ -396,6 +471,141 @@ body {
   .kr-prompt { font-size: clamp(30px, 3.2vw, 44px); }
   .kr-reef-strip { flex-basis: 128px; }
   .kr-groups { grid-auto-rows: minmax(76px, auto); }
+}
+
+/* ============ Projector: the stage is exactly the window; boxes scroll inside themselves ============ */
+
+@media (min-width: 901px) and (min-height: 560px) {
+  body { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+}
+@media (pointer: coarse) {
+  .kr-btn-sm { min-height: 44px; }
+}
+
+/* ============ Tablet and below: the page scrolls, columns stack ============ */
+
+@media (max-width: 1000px) {
+  .kr-setup-cols { grid-template-columns: 1fr 1fr; }
+  .kr-editor-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 900px) {
+  html { scroll-padding-bottom: 190px; }
+  #kr-main { min-height: auto; }
+  .kr-screen:not(.kr-phone) {
+    overflow: visible; flex: 1 1 auto; gap: 14px; padding: 14px 16px max(14px, env(safe-area-inset-bottom));
+  }
+  .kr-hero { font-size: clamp(40px, 13vw, 72px); overflow-wrap: anywhere; }
+  .kr-center { text-align: center; }
+  .kr-prompt { font-size: clamp(24px, 6vw, 36px); overflow-wrap: anywhere; }
+  .kr-prompt-sm { font-size: 20px; overflow-wrap: anywhere; }
+  .kr-title { font-size: 24px; }
+  .kr-btn-sm { min-height: 44px; }
+  .kr-check, .kr-mode { min-height: 44px; }
+  .kr-check input, .kr-mode input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: var(--kr-accent); }
+  .kr-mode { align-items: center; }
+
+  /* The action row is the bottom bar: it stays in the flow (never over the content) and sticks to the
+     bottom of the screen; the main action takes a full line, the rest share the next lines. */
+  .kr-screen:not(.kr-phone) > .kr-actions {
+    position: sticky; bottom: 0; z-index: 6; margin: auto -16px 0; gap: 6px;
+    padding: 10px 16px max(10px, env(safe-area-inset-bottom)); background: var(--kr-stage); border-top: 1px solid var(--kr-line);
+  }
+  .kr-center > .kr-actions { margin-top: 0; align-self: stretch; }
+  .kr-screen:not(.kr-phone) > .kr-actions > .kr-btn { flex: 1 1 calc(50% - 6px); padding: 0 8px; min-width: 0; }
+  .kr-screen:not(.kr-phone) > .kr-actions > .kr-btn-primary,
+  .kr-screen:not(.kr-phone) > .kr-actions > .kr-btn-lg { flex-basis: 100%; }
+
+  /* Setup */
+  .kr-player-list { max-height: 50dvh; }
+  .kr-player { padding-left: 0; }
+
+  /* Prompt */
+  .kr-prompt-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .kr-clock-box { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+  .kr-clock { font-size: 64px; }
+  .kr-clock-track { order: 3; flex: 1 1 100%; width: auto; }
+  .kr-chips { max-height: 38dvh; }
+  .kr-type { margin-top: 0; }
+  .kr-type > .kr-field, .kr-type .kr-type-text, .kr-type > .kr-btn { flex: 1 1 100%; width: 100%; }
+  #screen-prompt .kr-list { max-height: 30dvh; }
+
+  /* Judge's review and reveal */
+  .kr-reveal-body { flex: 0 0 auto; flex-direction: column; }
+  .kr-queue { flex: 0 0 auto; }
+  .kr-queue-list { flex: 0 1 auto; max-height: 58dvh; }
+  .kr-queue-item { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px 0; }
+  .kr-queue-text { flex-wrap: wrap; white-space: normal; gap: 2px 10px; }
+  .kr-queue-answer { white-space: normal; overflow-wrap: anywhere; }
+  .kr-queue-who { flex: 1 1 100%; overflow-wrap: anywhere; }
+  .kr-queue-item .kr-tier-buttons { flex-wrap: wrap; }
+  .kr-queue-spacer { display: none; }
+  .kr-groups, .kr-groups.is-dense { flex: 0 1 auto; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: 56dvh; }
+  .kr-groups.is-dense { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .kr-group.is-wide, .kr-group.is-full { grid-column: 1 / -1; }
+  .kr-list { flex: 0 0 auto; max-height: 40dvh; }
+  .kr-reef { padding: 8px 10px; }
+  .kr-reef-strip { flex: 0 0 auto; }
+  .kr-reef.is-compact { max-height: 40dvh; }
+  .kr-reef.is-compact .kr-reef-lanes { grid-template-columns: minmax(0, 1fr); }
+  .kr-reef.is-compact .kr-lane-name { flex-basis: 7.5em; }
+
+  /* Puffer Party */
+  .kr-puffer { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; gap: 14px; }
+  .kr-ring { min-height: 0; }
+  .kr-ring.is-compact { max-height: 42dvh; }
+  .kr-ring.is-compact .kr-clock { font-size: 44px; }
+  .kr-used { flex: 0 1 auto; max-height: 30dvh; }
+  .kr-type-text { width: 100%; }
+
+  /* Result */
+  .kr-standings { width: 100%; max-height: 52dvh; padding-right: 8px; }
+
+  /* Editor */
+  .kr-editor-bar .kr-inline { flex: 1 1 100%; }
+  .kr-editor-bar .kr-inline .kr-btn { flex: 1 1 auto; }
+  .kr-ed-list button { min-height: 44px; }
+}
+
+@media (max-width: 640px) {
+  .kr-setup-cols { grid-template-columns: minmax(0, 1fr); }
+  .kr-error { margin: 8px 16px 0; }
+  .kr-tagline, .kr-lede { font-size: 16px; }
+
+  /* Toolbar: the title stays; the buttons lose their words (their aria-labels remain) and keep their icons.
+     If title + chip + buttons still do not fit, the buttons wrap onto a second line instead of overflowing. */
+  body .kr-bar.gsc-toolbar { height: auto; min-height: 56px; flex-wrap: wrap; gap: 4px 8px; padding: 6px 12px; }
+  body .kr-bar .kr-bar-title { flex: 1 1 5em; font-size: 17px; }
+  body .kr-bar .kr-bar-actions { flex: 0 1 auto; gap: 6px; }
+  body .kr-bar .kr-chip { flex: 0 1 auto; min-width: 0; max-width: 40vw; padding: 2px 8px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  body .gsc-toolbar .kr-bar-btn { width: 44px; min-width: 44px; padding: 0; font-size: 0; gap: 0; }
+  body .gsc-toolbar .kr-bar-btn .gsc-icon { width: 22px; height: 22px; }
+
+  .kr-rules { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .kr-tier-row { grid-template-columns: minmax(0, 1fr) 84px; }
+  .kr-clock { font-size: 56px; }
+  .kr-standing { gap: 10px; }
+
+  /* Editor: each rated answer is a small card, not a table row */
+  .kr-ed-table, .kr-ed-table tbody { display: block; }
+  .kr-ed-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .kr-ed-table tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding: 10px 0;
+    border-bottom: 1px solid var(--kr-line);
+  }
+  .kr-ed-table td { display: block; padding: 0; min-width: 0; }
+  .kr-ed-table td:nth-child(1), .kr-ed-table td:nth-child(2) { grid-column: 1 / -1; }
+  .kr-ed-table td:nth-child(1)::before { content: "Answer"; }
+  .kr-ed-table td:nth-child(2)::before { content: "Aliases"; }
+  .kr-ed-table td:nth-child(3)::before { content: "Tier"; }
+  .kr-ed-table td::before { display: block; margin-bottom: 2px; font-size: 14px; color: var(--kr-dim); }
+  .kr-ed-table td:nth-child(4) { align-self: end; }
+  .kr-ed-table td:nth-child(4)::before { content: ""; }
+
+  /* Modal: stacked full-width buttons */
+  .kr-modal { padding: 18px; }
+  .kr-modal .kr-actions { flex-direction: column; align-items: stretch; }
+  .kr-modal .kr-actions > .kr-btn { width: 100%; }
 }
 
 /* ============ Motion: only what carries meaning ============ */
