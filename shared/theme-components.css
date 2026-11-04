@@ -1,0 +1,666 @@
+/* ============================================================
+   Game Show Central — design system v3 component kit
+   Imported by shared/theme.css, so every page that already links the
+   theme gets these for free. Every selector is `.gsc-*`; adopting one
+   is always opt-in.
+
+   v3 keeps every v2 class NAME and changes the look: flat surfaces, a
+   10 % hairline, 8 px panels, 6 px controls, sentence case, Inter
+   400/500/600, no blur, no glow, no gradients under text, no hover
+   lifts, no idle pulses. Decorative v2 classes (.gsc-marquee,
+   .gsc-sheen) still exist so old markup does not break, but render
+   nothing.
+
+   Motion rule: every @keyframes AND every `animation:` lives inside
+   `@media (prefers-reduced-motion: no-preference)`, so under `reduce`
+   nothing animates and `document.getAnimations()` is empty.
+
+   Reference + per-game checklist: docs/design-system.md
+   ============================================================ */
+
+/* ============================================================
+   1. Motion — only motion that carries meaning
+   ============================================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Something new arrived (a revealed answer, a score). A short fade-up. */
+  @keyframes gsc-pop {
+    0%   { opacity: 0; transform: translateY(4px); }
+    100% { opacity: 1; transform: none; }
+  }
+
+  /* A board tile turning over. Put it on the .gsc-tile-inner. */
+  @keyframes gsc-flip {
+    0%   { transform: rotateX(0deg); }
+    100% { transform: rotateX(-180deg); }
+  }
+
+  /* Content entering: a panel, a result card. */
+  @keyframes gsc-rise {
+    0%   { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: none; }
+  }
+
+  /* A status dot that is working (reconnecting). Meaningful, so it stays. */
+  @keyframes gsc-dot {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.3; }
+  }
+
+  /* The 600 ms game-switch title card. */
+  @keyframes gsc-splash-in {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes gsc-splash-title {
+    0%   { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: none; }
+  }
+
+  /* v2 decorative keyframes, retired in v3. The names stay so a game sheet
+     that still references them does not break; they no longer move. */
+  @keyframes gsc-glow { 0%, 100% { opacity: 1; } }
+  @keyframes gsc-shimmer { 0%, 100% { background-position: 0 0; } }
+  @keyframes gsc-pulse { 0%, 100% { transform: none; } }
+  @keyframes gsc-bulbs-a { 0%, 100% { opacity: 0; } }
+  @keyframes gsc-bulbs-b { 0%, 100% { opacity: 0; } }
+}
+
+/* ============================================================
+   2. Surfaces — one level
+   ============================================================ */
+
+.gsc-panel,
+.gsc-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.gsc-card { padding: 1rem 1.1rem; }
+
+/* The surface in play / selected. Still one level: a lighter fill. */
+.gsc-panel-strong { background: var(--panel-strong); }
+
+/* v2 "the panel that matters most". v3: an accent hairline, nothing more. */
+.gsc-panel-accent { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* A card that responds to the pointer: the border brightens. No lift. */
+.gsc-card-interactive { transition: border-color var(--dur-fast) linear; }
+.gsc-card-interactive:hover,
+.gsc-card-interactive:focus-within { border-color: rgba(255, 255, 255, 0.28); }
+
+/* A row inside a surface. Not a nested panel: no border of its own. */
+.gsc-well {
+  background: var(--well);
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   3. Buttons — rectangular, sentence case, weight 600
+   ============================================================ */
+
+.gsc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  min-height: 44px;
+  padding: 0.55em 1.1em;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: 0;
+  text-decoration: none;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) linear, border-color var(--dur-fast) linear;
+}
+
+.gsc-btn:hover { background-color: rgba(255, 255, 255, 0.06); }
+
+.gsc-btn:disabled,
+.gsc-btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+
+/* Primary = accent fill with its own readable ink. */
+.gsc-btn-primary {
+  color: var(--accent-ink);
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+.gsc-btn-primary:hover { background-color: color-mix(in srgb, var(--accent) 88%, white); }
+
+/* Secondary = hairline outline. */
+.gsc-btn-ghost { background-color: transparent; border-color: rgba(255, 255, 255, 0.22); }
+.gsc-btn-ghost:hover { border-color: rgba(255, 255, 255, 0.4); }
+
+/* Danger = red outline. */
+.gsc-btn-danger { color: var(--red); background-color: transparent; border-color: rgba(255, 107, 107, 0.6); }
+.gsc-btn-danger:hover { background-color: rgba(255, 107, 107, 0.08); }
+
+.gsc-btn-big { min-height: 48px; padding: 0.65em 1.4em; font-size: 1rem; }
+.gsc-btn-sm { min-height: 44px; padding: 0.4em 0.9em; font-size: 15px; }
+.gsc-btn-tap { min-height: var(--tap); font-size: 1rem; }
+.gsc-btn-block { width: 100%; }
+
+.gsc-btn-icon { width: 44px; padding: 0; }
+
+/* A host action row (".controls", the footer under every play screen): one
+   height for every button in it, big or small (consistency pass, docs/21 rule 4). */
+.controls > .btn,
+.controls > .gsc-btn { min-height: 48px; }
+
+/* ============================================================
+   4. Tags, badges, keys, status
+   ============================================================ */
+
+/* A plain-text tag. */
+.gsc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.2em 0.55em;
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+}
+
+.gsc-chip-accent { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+
+button.gsc-chip { cursor: pointer; font-family: var(--font-ui); }
+button.gsc-chip:hover { border-color: rgba(255, 255, 255, 0.35); color: var(--ink); }
+
+/* A flat label: hairline outline, no fill, never a pill (consistency pass). */
+.gsc-badge {
+  display: inline-block;
+  padding: 0.15em 0.55em;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+}
+
+/* Connection status: a CSS dot + a word (or visually-hidden text). Colour is
+   never the only signal: connected is filled, away is a hollow ring. */
+.gsc-status-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--green);
+}
+.gsc-status-dot.is-away { background: transparent; box-shadow: inset 0 0 0 2px var(--red); }
+
+.gsc-kbd {
+  display: inline-block;
+  min-width: 1.8em;
+  padding: 0.1em 0.4em;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink);
+  background: var(--panel-strong);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Colour is never the only signal: the dot is filled (on) or hollow (off). */
+.gsc-pill-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink-dim);
+}
+
+.gsc-pill-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-mute);
+}
+
+.gsc-pill-status.is-on::before { background: var(--green); }
+.gsc-pill-status.is-off::before { background: transparent; border: 2px solid var(--red); width: 6px; height: 6px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .gsc-pill-status.is-busy::before { animation: gsc-dot 1s ease-in-out infinite; }
+}
+
+/* ============================================================
+   4b. The host toolbar — ONE bar in every game (docs/21 rule 9,
+   docs/design-system.md §0 "The toolbar"). Markup:
+     <header class="topbar gsc-toolbar">
+       <h1 class="gsc-toolbar-title">Family Feud</h1>
+       <div class="gsc-toolbar-actions">
+         [room chip] <button class="btn btn-ghost gsc-toolbar-btn">Sound</button> …
+   The `body` prefix lifts these over each game's own `.topbar .btn`-style
+   rules (0,2,0) so every bar measures the same; a game's player-mode or
+   embedded rules (`body.x .topbar`, 0,2,1+) still win where they must.
+   ============================================================ */
+
+body .gsc-toolbar {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 16px;
+  height: 56px;
+  min-height: 56px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+body .gsc-toolbar .gsc-toolbar-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-ui);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body .gsc-toolbar .gsc-toolbar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 auto;
+}
+
+body .gsc-toolbar .gsc-toolbar-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  color: var(--ink);
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-sm);
+}
+
+body .gsc-toolbar .gsc-toolbar-btn:hover:not(:disabled) { background-color: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.4); }
+body .gsc-toolbar .gsc-toolbar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+body .gsc-toolbar .gsc-toolbar-btn .gsc-icon { flex: 0 0 auto; width: 18px; height: 18px; }
+
+/* ============================================================
+   5. Phase banner — "what is happening now"
+   ============================================================ */
+
+.gsc-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.7rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.gsc-banner-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.gsc-banner-sub { margin: 0; color: var(--ink-dim); font-size: 1rem; }
+.gsc-banner-end { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+
+/* ============================================================
+   6. Podium — a player/team with a score
+   ============================================================ */
+
+.gsc-podium {
+  --podium-accent: var(--accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.7rem 1rem;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.gsc-podium-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-dim);
+}
+
+/* A score is the hero of a podium: Anton, tabular. */
+.gsc-podium-score {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 2.8vw, 46px);
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.gsc-podium-note { font-size: 14px; color: var(--ink-mute); }
+
+/* The active player: the accent border (and the class, for anything reading
+   the DOM). No lift, no glow. */
+.gsc-podium.is-active { border-color: var(--podium-accent); box-shadow: inset 0 0 0 1px var(--podium-accent); }
+.gsc-podium.is-active .gsc-podium-name { color: var(--ink); }
+.gsc-podium.is-out { opacity: 0.5; }
+.gsc-podium.is-out .gsc-podium-score { text-decoration: line-through; }
+
+/* ============================================================
+   7. Lozenge — the hexagonal question/category plate
+   ============================================================ */
+
+.gsc-lozenge {
+  --loz-cut: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.7rem clamp(1.4rem, 2.6vw, 2.6rem);
+  text-align: center;
+  background: var(--panel-strong);
+  clip-path: polygon(
+    var(--loz-cut) 0%, calc(100% - var(--loz-cut)) 0%, 100% 50%,
+    calc(100% - var(--loz-cut)) 100%, var(--loz-cut) 100%, 0% 50%);
+}
+
+.gsc-lozenge-accent { background: var(--accent); color: var(--accent-ink); }
+.gsc-lozenge-sm { --loz-cut: 12px; padding: 0.4rem 1.3rem; font-size: 0.95rem; }
+
+/* ============================================================
+   8. Tile — a board cell with a front and a back face (flip = meaning)
+   ============================================================ */
+
+.gsc-tile { perspective: 900px; position: relative; }
+
+.gsc-tile-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.gsc-tile.is-flipped .gsc-tile-inner { transform: rotateX(-180deg); }
+
+.gsc-tile-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.gsc-tile-back { transform: rotateX(180deg); background: var(--panel-strong); color: var(--ink); }
+
+.gsc-tile-empty {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  color: transparent;
+}
+
+/* ============================================================
+   9. Timer — the shared countdown blocks
+   ============================================================ */
+
+.gsc-timer { display: flex; align-items: center; gap: 4px; }
+
+.gsc-timer-block {
+  width: clamp(10px, 1vw, 16px);
+  height: clamp(20px, 2.2vw, 34px);
+  border-radius: 2px;
+  background: var(--timer-off-bg, rgba(255, 255, 255, 0.08));
+  transition: background-color var(--dur-fast) linear;
+}
+
+.gsc-timer-block.is-lit { background: var(--timer-lit, #e5484d); }
+.gsc-timer.is-urgent .gsc-timer-block.is-lit { background: var(--timer-lit, #ff5c61); }
+
+.gsc-timer-label {
+  font-family: var(--font-ui);
+  font-size: clamp(20px, 1.8vw, 30px);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* ============================================================
+   10. Toast + modal
+   ============================================================ */
+
+.gsc-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.4rem;
+  z-index: 70;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 2rem));
+  padding: 0.7rem 1.1rem;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--panel-strong);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius);
+}
+
+.gsc-toast-danger { color: var(--red); }
+.gsc-toast-good { color: var(--green); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .gsc-toast { animation: gsc-rise var(--dur) var(--ease-out) both; }
+}
+
+.gsc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(5, 6, 9, 0.78);
+}
+
+.gsc-modal {
+  width: min(480px, 100%);
+  padding: 1.4rem 1.5rem 1.2rem;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius);
+}
+
+.gsc-modal-title {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-ui);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.gsc-modal-body { margin: 0 0 1rem; color: var(--ink-dim); line-height: 1.5; }
+.gsc-modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1.1rem; }
+
+/* ============================================================
+   11. Retired decoration (v2 names kept, render nothing)
+   ============================================================ */
+
+/* .gsc-marquee drew running bulbs; .gsc-sheen swept a light. v3 draws
+   neither. Remove the class from your markup when you next touch it. */
+.gsc-marquee { position: relative; }
+.gsc-sheen { background-image: none; }
+
+/* ============================================================
+   12. Splash — the 600 ms game-switch title card
+   ============================================================ */
+
+.gsc-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  pointer-events: none; /* decorative: never eats a click */
+  background: color-mix(in srgb, var(--accent) 5%, var(--stage-base));
+}
+
+/* The kicker and the sub are optional; keep the card to the name. */
+.gsc-splash-kicker { margin: 0; font-size: 1rem; font-weight: 500; color: var(--ink-dim); }
+
+.gsc-splash-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-hero);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.gsc-splash-sub { margin: 0; font-size: var(--fs-body); color: var(--ink-dim); }
+
+/* One rule in the game's accent. */
+.gsc-splash-rule { width: 64px; height: 3px; background: var(--accent); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .gsc-splash { animation: gsc-splash-in 160ms linear both; }
+  .gsc-splash-title { animation: gsc-splash-title 240ms var(--ease-out) both; }
+}
+
+/* ============================================================
+   13. Library picker — the shared question-set chooser
+   Built by shared/library.js (GSCLibrary.mountPicker).
+   ============================================================ */
+
+.gsc-library {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem 0.95rem;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.gsc-library-label { font-size: 0.95rem; font-weight: 500; color: var(--ink-dim); }
+
+.gsc-library-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+.gsc-library-select {
+  flex: 1 1 12rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.4em 0.6em;
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--stage-base);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+}
+
+.gsc-library-select:focus-visible { border-color: var(--focus); }
+.gsc-library-load { flex: 0 0 auto; }
+
+.gsc-library-preview { margin: 0; font-size: 0.95rem; line-height: 1.4; color: var(--ink-dim); }
+.gsc-library-error { margin: 0; font-size: 0.95rem; line-height: 1.4; color: var(--amber); }
+.gsc-library-error:empty { display: none; }
+
+/* No manifest (file://, or no sets/ yet): only the note is left. */
+.gsc-library-off .gsc-library-error { color: var(--ink-dim); }
+
+@media (max-width: 480px) {
+  .gsc-library-select { flex: 1 1 100%; min-height: var(--tap); }
+  .gsc-library-load { width: 100%; min-height: var(--tap); }
+}
+
+/* ============================================================
+   14. Small shared helpers
+   ============================================================ */
+
+/* A hairline divider. */
+.gsc-rule { height: 1px; border: 0; margin: 0; background: var(--hairline); }
+
+/* Scrollable region (editors, long setup lists — never a host play grid). */
+.gsc-scroll {
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+/* An inline SVG icon from shared/icons.js. */
+.gsc-icon { display: inline-block; vertical-align: -0.2em; flex: 0 0 auto; }

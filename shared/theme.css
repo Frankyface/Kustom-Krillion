@@ -1,0 +1,367 @@
+/* ============================================================
+   Game Show Central — shared design tokens (design system v3)
+   Every page (hub + games) loads this first, then its own sheet.
+
+   v3 (docs/21-ui-cleanup-brief.md) keeps EVERY v1/v2 token and class
+   NAME — fifteen games depend on them — and changes the VALUES to a
+   quiet, editorial broadcast look: a flat dark stage with at most 6 %
+   of the game's tint, one flat surface level with a 10 % white
+   hairline, 8 px radius, rectangular sentence-case buttons, Inter
+   400/500/600 for everything except the one Anton hero per screen,
+   and gold reserved for money. No blur, no glow, no gradients under
+   text, no radial spotlights.
+
+   Reference + per-game checklist: docs/design-system.md
+   ============================================================ */
+
+@import url("theme-components.css");
+
+:root {
+  /* ---------- stage ---------- */
+  /* The v1 --stage-* names stay. Games still set --stage-deep/--stage-night
+     in their own :root; v3 no longer paints them as a spotlight — the body
+     is a flat --stage-bg (see Base). */
+  --stage-deep: #0b0d12;
+  --stage-night: #0b0d12;
+  --stage-card: #151820;
+  --stage-glow: #0b0d12;   /* v3: no glow; kept so old references resolve */
+  --stage-accent: #2f5fe0;
+  --stage-base: #0b0d12;   /* the one neutral every stage is mixed from */
+
+  /* ---------- ink ---------- */
+  --ink: #eceef3;          /* 16.7:1 on the stage */
+  --ink-dim: #a9aebb;      /*  8.0:1 on a surface */
+  --ink-mute: #8b919f;     /*  5.6:1 on a surface */
+  --ink-faint: rgba(255, 255, 255, 0.28); /* borders only, never text */
+
+  /* ---------- signal colours ---------- */
+  /* Gold is for money, and from v3 on for nothing else. */
+  --gold: #ffcc4d;
+  --gold-deep: #d9a437;
+  --gold-text: #ffd35e;
+  --red: #ff6b6b;
+  --green: #51d88a;
+  --amber: #ffb347;
+
+  /* ---------- accents (per game; see the blocks below) ---------- */
+  --accent: #2f5fe0;
+  --accent-2: #8fb0ff;
+  --accent-ink: #ffffff;
+
+  /* ---------- surfaces: ONE level ---------- */
+  --surface: #151820;                 /* one step lighter than the stage */
+  --hairline: rgba(255, 255, 255, 0.10);
+  --panel: var(--surface);            /* v2 name, now opaque and flat */
+  --panel-strong: #1b1f28;            /* the selected / in-play surface */
+  --panel-line: var(--hairline);
+  --panel-blur: 0px;                  /* v2 name; v3 never blurs */
+  --well: rgba(255, 255, 255, 0.03);  /* a list row inside a surface */
+  --line: var(--hairline);
+
+  /* ---------- shape ---------- */
+  --radius-sm: 6px;     /* buttons, inputs, tags */
+  --radius: 8px;        /* surfaces */
+  --radius-lg: 8px;     /* v2 name; v3 has one surface radius */
+  --radius-xl: 8px;
+  --radius-pill: 999px; /* status dots only */
+
+  --shadow-panel: none;
+  --shadow-lift: none;
+  --shadow-inset: none;
+
+  /* ---------- type ---------- */
+  --font-display: "Anton", "Haettenschweiler", "Arial Narrow Bold", Impact, sans-serif;
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-hero: clamp(56px, 7.5vw, 120px);  /* the ONE Anton hero word */
+  --fs-display: clamp(36px, 4vw, 60px);  /* Anton: a money amount, a card name */
+  --fs-title: clamp(20px, 1.6vw, 24px);  /* Inter 600 headings */
+  --fs-body: clamp(16px, 1.25vw, 19px);
+  --fs-ui: clamp(15px, 1.1vw, 16px);
+  --fs-micro: 14px;                      /* a label naming a control group */
+  --track-display: 0;
+  --track-eyebrow: 0;
+
+  /* ---------- motion ---------- */
+  --duration: 160ms;
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 420ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1); /* v3: no overshoot */
+
+  --tap: 56px;
+  --focus: #9ec1ff;   /* not gold: gold is money */
+}
+
+/* ============================================================
+   Per-game accent — one block per registry id, keyed on the
+   `data-gsc-game` ATTRIBUTE so a sub-tree (the hub's shell bar, the
+   splash card) can wear another game's accent. These blocks are the
+   ONLY source of a game's accent. v3 uses --accent for exactly: the
+   active state, the primary button, one rule or underline.
+   --stage-glow is still set so old references resolve, but v3 paints
+   nothing from it.
+   ============================================================ */
+
+[data-gsc-game="hub"] {
+  --accent: #2f5fe0; --accent-2: #8fb0ff; --accent-ink: #ffffff;
+  --stage-glow: #0b0d12;
+}
+[data-gsc-game="jeopardy"] {
+  --accent: #2b34ff; --accent-2: #ffcc4d; --accent-ink: #ffffff;
+  --stage-glow: #0a1158;
+}
+[data-gsc-game="family-feud"] {
+  --accent: #e21b3c; --accent-2: #ffcc4d; --accent-ink: #ffffff;
+  --stage-glow: #10306b;
+}
+[data-gsc-game="wheel-of-fortune"] {
+  --accent: #9d4edd; --accent-2: #2ec4b6; --accent-ink: #ffffff;
+  --stage-glow: #3d1268;
+}
+[data-gsc-game="weakest-link"] {
+  --accent: #7c99b6; --accent-2: #d33; --accent-ink: #06101a;
+  --stage-glow: #16222e;
+}
+[data-gsc-game="millionaire"] {
+  --accent: #3346c8; --accent-2: #a06bff; --accent-ink: #ffffff;
+  --stage-glow: #141c63;
+}
+[data-gsc-game="price-is-right"] {
+  /* White on this red is only 4.2:1, so the ink on the accent is near-black. */
+  --accent: #e63946; --accent-2: #ffd23f; --accent-ink: #1a0206;
+  --stage-glow: #123a86;
+}
+[data-gsc-game="pyramid"] {
+  /* v3: gold is money, so Pyramid leads with teal. --accent-2 (gold) is used
+     only for Winner’s Circle money. Dark ink on the teal is 7.9:1. */
+  --accent: #2ec4b6; --accent-2: #f4b400; --accent-ink: #04201d;
+  --stage-glow: #0b3b3c;
+}
+[data-gsc-game="deal-or-no-deal"] {
+  --accent: #b5121b; --accent-2: #f2c14e; --accent-ink: #ffffff;
+  --stage-glow: #4a0810;
+}
+[data-gsc-game="password"] {
+  /* v3: gold is for money, so Password leads with the show's blue. The ink on
+     #7aa2ff is dark (7.2:1). --accent-2 #f2c94c is Lightning Round money only. */
+  --accent: #7aa2ff; --accent-2: #f2c94c; --accent-ink: #0b1430;
+  --stage-glow: #0b0d12;
+}
+[data-gsc-game="chain-reaction"] {
+  /* White on the pink is only 3.5:1, so the ink is a near-black plum (5.4:1).
+     --accent-2 is the electric blue LIFTED to #4d7bff: the brand's #0f3bd9 is
+     2.5:1 on the stage — use #0f3bd9 as a fill (white on it 7.9:1), not ink. */
+  --accent: #ff2e88; --accent-2: #4d7bff; --accent-ink: #2a0213;
+  --stage-glow: #10276e;
+}
+[data-gsc-game="the-chase"] {
+  /* White on the red is 5.7:1. The red itself is 3.4:1 on the stage — fine
+     for fills and rules (the >=3:1 non-text threshold), never for text. */
+  --accent: #d10000; --accent-2: #6aa8ff; --accent-ink: #ffffff;
+  --stage-glow: #04143a;
+}
+[data-gsc-game="one-vs-100"] {
+  /* White on the cyan is 1.9:1. */
+  --accent: #19c9ff; --accent-2: #ffcc4d; --accent-ink: #04161d;
+  --stage-glow: #062a3d;
+}
+[data-gsc-game="press-your-luck"] {
+  /* White on the pink is 3.2:1. */
+  --accent: #ff3ea5; --accent-2: #ffe14d; --accent-ink: #2b0217;
+  --stage-glow: #2a0b45;
+}
+[data-gsc-game="match-game"] {
+  /* White on the orange is 2.3:1. */
+  --accent: #ff8c1a; --accent-2: #e6b800; --accent-ink: #2a1403;
+  --stage-glow: #3b1f0e;
+}
+[data-gsc-game="krillion"] {
+  /* Bioluminescent teal on deep ocean; white on the teal is 1.6:1. */
+  --accent: #2ee6c5; --accent-2: #ff6b57; --accent-ink: #03111f;
+  --stage-glow: #03111f;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-ui);
+  font-weight: 400;
+  color: var(--ink);
+  /* v3 stage: flat — the neutral base with 5 % of the game accent. No radial
+     spotlight, no vignette. Declared on the body so it resolves against THIS
+     body's --accent. */
+  --stage-bg: color-mix(in srgb, var(--accent) 5%, var(--stage-base));
+  background: var(--stage-bg);
+}
+
+/* ============ Utilities ============ */
+
+.hidden { display: none !important; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.error-msg { color: var(--red); font-size: 0.95rem; margin: 0.5rem 0 0; }
+.hint-msg { color: var(--ink-dim); font-size: 0.95rem; margin: 0.4rem 0 0; }
+
+/* ============ Type utilities ============ */
+
+/* Anton is for the ONE hero word per screen: a game name, a money amount,
+   the room code. It keeps its source case and normal tracking. */
+.gsc-hero, .gsc-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 0.95;
+  text-transform: none;
+  margin: 0;
+}
+
+.gsc-hero { font-size: var(--fs-hero); }
+.gsc-display { font-size: var(--fs-display); }
+
+/* v3: a title is Inter 600, not Anton. */
+.gsc-title {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: var(--fs-title);
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
+  margin: 0;
+}
+
+/* v3: the eyebrow is a quiet group label (sentence case, no tracking).
+   Prefer deleting a decorative eyebrow to styling it. */
+.gsc-eyebrow {
+  margin: 0;
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-dim);
+}
+
+.gsc-body { font-size: var(--fs-body); line-height: 1.5; margin: 0; }
+.gsc-dim { color: var(--ink-dim); }
+.gsc-mute { color: var(--ink-mute); }
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ============ Buttons (v1 names, v3 look) ============ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  min-height: 44px;              /* host controls are 44–48 px (docs/21 rule 4) */
+  padding: 0.5em 1em;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: 0;
+  text-decoration: none;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) linear, border-color var(--dur-fast) linear;
+}
+
+.btn:hover { background-color: rgba(255, 255, 255, 0.06); }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* .btn-gold is the v1 name for the PRIMARY button. v3: accent fill, not gold. */
+.btn-gold {
+  color: var(--accent-ink);
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+.btn-gold:hover { background-color: color-mix(in srgb, var(--accent) 88%, white); }
+
+.btn-ghost { color: var(--ink); background-color: transparent; border-color: rgba(255, 255, 255, 0.22); }
+.btn-ghost:hover { border-color: rgba(255, 255, 255, 0.4); }
+
+.btn-danger { color: var(--red); background-color: transparent; border-color: rgba(255, 107, 107, 0.6); }
+.btn-danger:hover { background-color: rgba(255, 107, 107, 0.08); }
+
+.btn-big { min-height: 48px; font-size: 1rem; padding: 0.6em 1.4em; }
+/* v1 name kept; v3 host controls never drop under 44 px or 15 px (consistency pass). */
+.btn-small { min-height: 44px; font-size: 15px; padding: 0.4em 0.9em; }
+.btn-tap { min-height: var(--tap); font-size: 1rem; }
+
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* A primary that cannot be pressed yet is not "the" primary: it reads as a
+   disabled outline, so an action row never shows two filled buttons. */
+.btn-gold:disabled,
+.gsc-btn-primary:disabled { color: var(--ink); background-color: transparent; border-color: rgba(255, 255, 255, 0.22); }
+
+/* An inline SVG from shared/icons.js inside any button. */
+.btn .gsc-icon, .gsc-btn .gsc-icon { flex: 0 0 auto; }
+
+/* ============ Fields ============ */
+
+.field { display: block; margin: 0 0 1rem; }
+
+.field-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-dim);
+  margin: 0 0 0.4rem;
+}
+
+.field-input {
+  width: 100%;
+  min-height: 44px;
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--stage-base);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-sm);
+  padding: 0.6em 0.8em;
+}
+
+.field-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; border-color: var(--focus); }
+
+/* ============ Motion ============ */
+
+/* Every v3 animation is declared inside `prefers-reduced-motion:
+   no-preference` (theme-components.css). This block is the safety net for
+   game sheets that have not been converted yet. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
