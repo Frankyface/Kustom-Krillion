@@ -157,3 +157,42 @@ test("BR-11 the shipped files carry the new defaults and no old ids", () => {
   assert.equal(JSON.parse(read("prompts.json")).settings.brand.name, "Deep Cut");
   assert.equal(JSON.parse(read("prompts.json")).title, "Deep Cut — Game Night");
 });
+
+test("BR-12 withNaming: names come from the setup when tier ids match, never otherwise", () => {
+  const setup = K.normalizeSettings({ brand: { name: "Trivia Tide", tagline: "Dive" },
+    tiers: K.applyPreset(K.TIERS, "rarity") });
+  const g = K.withNaming(file(ZONES, { brand: { name: "Old" } }), setup);
+  assert.equal(g.settings.brand.name, "Trivia Tide");
+  assert.deepEqual(g.settings.tiers.map((t) => t.name), ["Common", "Uncommon", "Rare", "Epic", "Legendary"]);
+  assert.deepEqual(g.settings.tiers.map((t) => t.points), [10, 30, 60, 85, 100], "points follow the file");
+  const own = K.withNaming(file(LEGACY, { tiers: legacyTiers() }), setup);
+  assert.equal(own.settings.brand.name, "Trivia Tide");
+  assert.deepEqual(own.settings.tiers.map((t) => t.id), ZONES, "legacy ids are read as zones first");
+  const custom = ["a", "b", "c", "d", "e"].map((id, i) => ({ id, name: id, points: i + 1 }));
+  const kept = K.withNaming(file(["a", "b", "c", "d", "e"], { tiers: custom }), setup);
+  assert.deepEqual(kept.settings.tiers.map((t) => t.name), ["a", "b", "c", "d", "e"], "other ids: untouched");
+  assert.equal(file(ZONES, {}).settings.brand, undefined, "the input is not mutated");
+});
+
+test("BR-13 namingNote: said only when the file's naming differs from the host's", () => {
+  const mine = K.normalizeSettings({ brand: { name: "Trivia Tide" } });
+  const same = K.normalizeSettings({ brand: { name: "Trivia Tide" } });
+  assert.equal(K.namingNote(same, mine), "");
+  const other = K.normalizeSettings({ brand: { name: "Quiz Reef" } });
+  assert.equal(K.namingNote(other, mine), "Kept your game name and tier names. This file calls itself “Quiz Reef”.");
+  const renamed = K.normalizeSettings({ brand: { name: "Trivia Tide" }, tiers: K.applyPreset(K.TIERS, "rarity") });
+  assert.match(K.namingNote(renamed, mine), /Kept your game name/);
+  const custom = K.normalizeSettings({ tiers: [{ id: "a", name: "A", points: 1 }, { id: "b", name: "B", points: 2 }] });
+  assert.equal(K.namingNote(custom, K.normalizeSettings({ brand: { name: "Deep Cut" } })), "", "different ids: the file's tiers are adopted, nothing kept");
+});
+
+test("BR-14 applyLearned maps legacy ids on learned items too", () => {
+  const out = K.applyLearned(file(ZONES, {}), [{ prompt: "Name thing 0", text: "Zebra", tier: "krillion" },
+    { prompt: "Name thing 1", text: "Yak", tier: "prawn" }, { prompt: "Name thing 2", text: "Nope", tier: "bogus" }]);
+  assert.equal(out.prompts[0].answers[5].tier, "abyss");
+  assert.equal(out.prompts[1].answers[5].tier, "shallows");
+  assert.equal(out.prompts[2].answers.length, 5);
+  const custom = ["a", "b", "c", "d", "e"].map((id, i) => ({ id, name: id, points: i + 1 }));
+  assert.equal(K.applyLearned(file(["a", "b", "c", "d", "e"], { tiers: custom }),
+    [{ prompt: "Name thing 0", text: "Zed", tier: "rare" }]).prompts[0].answers.length, 5);
+});

@@ -295,7 +295,7 @@ function krSettingsFor(game) {
   const setup = krApp.setup;
   const pointsKept = !!setup.settingsTouched;
   const namesKept = !!setup.namesTouched;
-  if (!pointsKept && !namesKept) return { settings: fromFile, mode: fromFile.mode };
+  if (!pointsKept && !namesKept) return { settings: fromFile, mode: fromFile.mode, note: "" };
   const mine = setup.settings;
   const sameTiers = fromFile.tiers.map((t) => t.id).join() === mine.tiers.map((t) => t.id).join();
   const tiers = sameTiers ? fromFile.tiers.map((t, i) => ({
@@ -304,6 +304,7 @@ function krSettingsFor(game) {
   return {
     settings: Object.assign({}, pointsKept ? mine : fromFile, { tiers, brand: namesKept ? mine.brand : fromFile.brand }),
     mode: pointsKept ? setup.mode : fromFile.mode,
+    note: namesKept ? window.KrCore.namingNote(fromFile, mine) : "",
   };
 }
 
@@ -313,9 +314,31 @@ function krUseGame(raw, source, kind, url) {
   const picked = krSettingsFor(game);
   krSet({
     game, source, sourceKind: kind || "custom", sourceUrl: url || null,
-    setup: Object.assign({}, krApp.setup, picked),
+    setup: Object.assign({}, krApp.setup, { settings: picked.settings, mode: picked.mode }),
   });
-  krError(krPendingNote);
+  krError(picked.note || krPendingNote);
+}
+
+/**
+ * The editor's "Use in game": an explicit naming edit, so the draft's game name
+ * and tier names replace the setup's (the file's points still follow the usual rule).
+ */
+function krUseEditorGame(raw) {
+  const K = window.KrCore;
+  K.validateGame(raw);
+  const game = K.upgradeGame(raw);
+  const before = krApp.setup;
+  const picked = krSettingsFor(game);
+  const fromFile = K.settingsOf(game);
+  const sameTiers = fromFile.tiers.map((t) => t.id).join() === picked.settings.tiers.map((t) => t.id).join();
+  const tiers = picked.settings.tiers.map((t, i) => (sameTiers ? Object.assign({}, t, { name: fromFile.tiers[i].name }) : t));
+  const settings = Object.assign({}, picked.settings, { brand: fromFile.brand, tiers });
+  const changed = K.namingDiffers(settings, before.settings);
+  krSet({
+    game, source: "Custom prompts (from the editor)", sourceKind: "editor", sourceUrl: null,
+    setup: Object.assign({}, before, { settings, mode: picked.mode, namesTouched: !!before.namesTouched || changed }),
+  });
+  krError("");
 }
 
 function krOnFile(event) {
@@ -325,7 +348,6 @@ function krOnFile(event) {
   reader.onload = () => {
     try {
       krUseGame(JSON.parse(String(reader.result)), `Prompts from ${file.name}`, "file", null);
-      krError("");
     } catch (err) {
       krError(`That file can’t be used: ${err.message}`);
     }
@@ -359,7 +381,10 @@ function krEditNames(change) {
   const next = JSON.parse(JSON.stringify(krApp.setup.settings));
   change(next);
   try {
-    krSetSetup({ settings: window.KrCore.normalizeSettings(next, { lenient: true }), namesTouched: true });
+    const clean = window.KrCore.normalizeSettings(next, { lenient: true });
+    krSetSetup({ settings: clean, namesTouched: true });
+    const shown = $("kr-error");
+    if (!window.KrCore.settingsProblem(clean) && shown && shown.textContent.indexOf("Fix the name and tiers first") === 0) krError("");
   } catch (err) {
     krError(err.message);
     krRender();
@@ -590,7 +615,6 @@ function krMountLibrary() {
     onPick: (json, meta) => {
       try {
         krUseGame(json, `set: ${meta.name}`, "set", null);
-        krError("");
       } catch (err) {
         krError(`That set can’t be used: ${err.message}`);
       }
@@ -658,6 +682,7 @@ window.KrApp = {
   dispatch: krDispatch,
   subscribe: (fn) => { krListeners.push(fn); },
   useGame: krUseGame,
+  useEditorGame: krUseEditorGame,
   addPlayer: krAddPlayer,
   addManual: krAddManual,
   removePlayer: krRemovePlayer,

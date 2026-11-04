@@ -24,8 +24,20 @@ behaviour; `bridge.js` runs in standalone mode (no `?embed`).
 
 ## Evidence
 - 2026-11-04, b90cae2: unit tests 127/127 pass.
-- Harness and browser checks: pending (run after F002 integrates, on the
-  integrated state).
+- 2026-11-04, integrated state (9c3ec1c), built-in browser, http://localhost:8631:
+  - `tests/harness.html`: "All 20 checks passed" (KR-I1, I2, I6 incl. the
+    no-leak assertions).
+  - Host-only Deep Dive prompt: 2 typed answers; the off-list answer went to
+    the judge, was ruled, revealed Shallows → top tier, depth board updated.
+  - Game lobby → Start over kept players and settings.
+  - Real PeerJS room FXRS opened; a phone tab (375×812) joined as "Cy"; host
+    roster showed "Cy phone".
+  - Puffer Party with 2 typed players + the phone: the puffer passed Ann → Bo
+    → Cy; a duplicate answer was rejected on the phone ("already used"); the
+    clock popped and Cy lost a heart.
+  - Editor opens with the rated-answer table; no console errors in either tab.
+- Gaps: library set load, `?game=URL` and reload mid-prompt not exercised by
+  hand (covered by harness/unit tests in the source project, re-run here).
 
 ## Review
 State: pending.

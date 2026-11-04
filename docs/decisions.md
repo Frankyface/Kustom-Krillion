@@ -13,6 +13,16 @@
 - **D4 Tier count is not editable in the UI:** renaming and points only;
   changing the count would orphan answer ratings. 2–6 tiers stay possible via
   JSON.
+- **D6 Naming contract (rev 2, after review B1):** the setup's naming (brand +
+  tier names) is the single source of truth. The editor opens seeded with it;
+  the editor's "Use in game" writes its naming back to setup. A loaded file or
+  set keeps the host's names once the host has edited them, with an on-screen
+  note naming what the file calls itself; otherwise the file's naming is used.
+- **D7 Storage keys:** `kk-*` instead of `gsc-kr-*`, because GitHub Pages
+  serves Game-Show-Central from the same origin. Old GSC saves are
+  intentionally not migrated.
+- **D8 Tier-name strictness:** tier names must be unique case-insensitively. A
+  rare GSC file whose names differ only by case is refused with a message.
 - **D5 Shared tests:** hub-only tests (virtual peer, registry, shell) not
   imported; bridge, library, icons, room transport and prototype-guard tests
   kept.

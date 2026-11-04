@@ -25,7 +25,17 @@
    contains `settings.brand`.
 
 ## Evidence
-Pending.
+- Implementer (Sonnet) report: unit tests 138/138 (11 new in
+  `tests/kr-brand.test.mjs`); no innerHTML-family hits; largest file 673 lines.
+- PM, 9c3ec1c: 138/138 rerun after the storage-key rename.
+- PM browser check: renamed the game to "Kustom Krillion" and tier 5 to "One
+  in a Million"; the preset switched to Custom; toolbar, hero and `<title>`
+  updated; both edits survived a reload; the judge's buttons and reveal used
+  the custom tier names; the phone header showed "Kustom Krillion" after
+  joining.
+- Observed for follow-up: the editor's "Name & tiers" starts from the file
+  ("Deep Cut") rather than the host's setup edits; the answer-table tier
+  dropdown truncates ("Shallov").
 
 ## Review
 State: pending.

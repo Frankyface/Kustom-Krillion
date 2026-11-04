@@ -383,6 +383,37 @@
     }
   }
 
+  const sameIds = (a, b) => a.length === b.length && a.every((t, i) => t.id === b[i].id);
+
+  /**
+   * A copy of a raw game whose brand and tier names come from `naming` (a
+   * settings object) when the tier ids match; unchanged otherwise.
+   */
+  function withNaming(game, naming) {
+    try {
+      const g = upgradeGame(game);
+      const mine = normalizeSettings(naming, { lenient: true });
+      const cur = normalizeSettings(g.settings, { lenient: true });
+      if (!sameIds(cur.tiers, mine.tiers)) return g;
+      const tiers = cur.tiers.map((t, i) => Object.assign({}, t, { name: mine.tiers[i].name }));
+      return Object.assign({}, g, { settings: Object.assign({}, g.settings, { brand: mine.brand, tiers }) });
+    } catch (err) {
+      return game;
+    }
+  }
+
+  /** True when two settings objects name the game or (same ids) its tiers differently. */
+  function namingDiffers(a, b) {
+    if (a.brand.name !== b.brand.name || a.brand.tagline !== b.brand.tagline) return true;
+    return sameIds(a.tiers, b.tiers) && a.tiers.some((t, i) => t.name !== b.tiers[i].name);
+  }
+
+  /** The note to show when a loaded file's naming lost to the host's; "" when they agree. */
+  function namingNote(fileSettings, mine) {
+    if (!namingDiffers(fileSettings, mine)) return "";
+    return `Kept your game name and tier names. This file calls itself “${fileSettings.brand.name}”.`;
+  }
+
   /** The settings a loaded (or half-written) file would play with. */
   function settingsOf(game) {
     try {
@@ -520,13 +551,15 @@
     const copy = JSON.parse(JSON.stringify(upgradeGame(game)));
     const tiers = settingsOf(copy).tiers;
     (Array.isArray(learned) ? learned : []).forEach((item) => {
-      if (!isPlainObject(item) || !isTier(item.tier, tiers)) return;
+      if (!isPlainObject(item)) return;
+      const tier = isTier(item.tier, tiers) ? item.tier : mapLegacyId(item.tier);
+      if (!isTier(tier, tiers)) return;
       const text = cleanText(item.text, ANSWER_MAX);
       const target = copy.prompts.find((p) => isPlainObject(p) && cleanText(p.text, PROMPT_MAX) === item.prompt);
       if (!text || !target) return;
       if (!Array.isArray(target.answers)) target.answers = [];
       if (target.answers.length >= MAX_ANSWERS || matchAnswer(target, text)) return;
-      target.answers.push({ text, tier: item.tier });
+      target.answers.push({ text, tier });
     });
     return copy;
   }
@@ -558,7 +591,7 @@
     PROMPT_MAX, CATEGORY_MAX, ANSWER_MAX, GAME_TITLE_MAX, NAME_MAX, PID_MAX,
     MIN_PROMPTS, MAX_PROMPTS, MIN_ANSWERS, MIN_TIERS_COVERED, MAX_ANSWERS, MAX_ALIASES,
     COMFORTABLE_ANSWERS, METRES_PER_POINT,
-    has, isPlainObject, isIntIn, cleanText, fail, tierList, tierById, isTier, normalizeTiers, normalizeBrand, brandOfSettings, settingsProblem, upgradeGame, applyPreset, presetOf,
+    has, isPlainObject, isIntIn, cleanText, fail, tierList, tierById, isTier, normalizeTiers, normalizeBrand, brandOfSettings, settingsProblem, withNaming, namingDiffers, namingNote, upgradeGame, applyPreset, presetOf,
     normaliseAnswer, looseForms, entryKeys, matchAnswer, missingTiers, promptProblem,
     normalizeGame, validateGame, normalizeSettings, settingsOf, warningsFor, applyLearned,
     shuffled, drawOrder,

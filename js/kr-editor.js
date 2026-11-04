@@ -318,7 +318,7 @@ function krEditorImport() {
 
 function krEditorUse() {
   try {
-    window.KrApp.useGame(krCopy(krDraft), "Custom prompts (from the editor)", "editor", null);
+    window.KrApp.useEditorGame(krCopy(krDraft));
     krCloseEditor();
   } catch (err) {
     krEditorMessage(`This file can’t be used yet: ${err.message}`);
@@ -332,8 +332,31 @@ function krStartingDraft() {
   return krBlankDraft();
 }
 
+let krSyncedNaming = "";
+
+/**
+ * Keep the editor and the setup screen showing the same names. A fresh draft is
+ * seeded from the setup; an existing one is overwritten only when the setup's
+ * naming changed since the editor last looked (so editor edits survive a reopen).
+ */
+function krSyncNaming(fresh) {
+  const setup = window.KrApp.state().setup;
+  const sig = JSON.stringify([setup.settings.brand, setup.settings.tiers.map((t) => [t.id, t.name])]);
+  if (fresh || (setup.namesTouched && sig !== krSyncedNaming)) {
+    krDraft = window.KrCore.withNaming(krDraft, setup.settings);
+    krSaveDraft();
+  }
+  krSyncedNaming = sig;
+}
+
 function krOpenEditor() {
-  if (!krDraft) krDraft = krLoadDraft() || krStartingDraft();
+  let built = false;
+  if (!krDraft) {
+    const saved = krLoadDraft();
+    built = !saved;
+    krDraft = saved || krStartingDraft();
+  }
+  krSyncNaming(built);
   window.KrApp.set({ editorOpen: true });
   krRenderEditor();
 }

@@ -39,7 +39,7 @@
   const COUNTS_MAX = 6;
 
   const NO_MANIFEST =
-    "No saved sets for this game yet — add games/<id>/sets/index.json to build a library.";
+    "No saved sets for this game yet — add sets/index.json to build a library.";
   const NO_SERVER =
     "Saved sets need a web server: this page was opened straight from a file. " +
     "Open it over http:// (or on the published site) to load a set.";
