@@ -394,15 +394,17 @@
       const g = upgradeGame(game);
       const mine = normalizeSettings(naming, { lenient: true });
       const cur = normalizeSettings(g.settings, { lenient: true });
-      if (!sameIds(cur.tiers, mine.tiers)) return g;
-      const tiers = cur.tiers.map((t, i) => Object.assign({}, t, { name: mine.tiers[i].name }));
-      return Object.assign({}, g, { settings: Object.assign({}, g.settings, { brand: mine.brand, tiers }) });
+      const ids = sameIds(cur.tiers, mine.tiers);
+      const tiers = ids ? cur.tiers.map((t, i) => Object.assign({}, t, { name: mine.tiers[i].name })) : cur.tiers;
+      const settings = Object.assign({}, g.settings, { brand: mine.brand });
+      if (ids) settings.tiers = tiers;
+      return Object.assign({}, g, { settings });
     } catch (err) {
       return game;
     }
   }
 
-  /** True when two settings objects name the game or (same ids) its tiers differently. */
+  /** True when two settings objects name the game, or (same ids) name its tiers, differently. */
   function namingDiffers(a, b) {
     if (a.brand.name !== b.brand.name || a.brand.tagline !== b.brand.tagline) return true;
     return sameIds(a.tiers, b.tiers) && a.tiers.some((t, i) => t.name !== b.tiers[i].name);
@@ -411,7 +413,8 @@
   /** The note to show when a loaded file's naming lost to the host's; "" when they agree. */
   function namingNote(fileSettings, mine) {
     if (!namingDiffers(fileSettings, mine)) return "";
-    return `Kept your game name and tier names. This file calls itself “${fileSettings.brand.name}”.`;
+    const what = sameIds(fileSettings.tiers, mine.tiers) ? "game name and tier names" : "game name";
+    return `Kept your ${what}. This file calls itself “${fileSettings.brand.name}”.`;
   }
 
   /** The settings a loaded (or half-written) file would play with. */

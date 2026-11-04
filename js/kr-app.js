@@ -316,7 +316,10 @@ function krUseGame(raw, source, kind, url) {
     game, source, sourceKind: kind || "custom", sourceUrl: url || null,
     setup: Object.assign({}, krApp.setup, { settings: picked.settings, mode: picked.mode }),
   });
-  krError(picked.note || krPendingNote);
+  // A boot-time load carries the "saved game couldn't be read" note once; a host's own load never does.
+  const booting = kind === "default" || kind === "url";
+  krError(picked.note || (booting ? krPendingNote : ""));
+  krPendingNote = "";
 }
 
 /**
