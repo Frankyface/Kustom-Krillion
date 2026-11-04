@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — clock glue
+   Deep Cut — clock glue
    The core stores a clock as a deadline (or, frozen, as the time
    remaining); this file only READS it. An interval — not rAF, so
    a background tab keeps up — paints the seconds and the bar and,

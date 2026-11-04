@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — host room glue
+   Deep Cut — host room glue
    Sits on GSC.host (architecture 00 §7): turns the lobby roster
    into the player list, validates every phone payload through
    the pure core before it touches state, and pushes each phone
@@ -81,7 +81,7 @@
       if (p.manual) return;
       const view = state
         ? Object.assign({ t: "view" }, core().phoneView(state, p.pid, now))
-        : { t: "view", screen: "wait", sub: "The host is still setting up." };
+        : { t: "view", screen: "wait", sub: "The host is still setting up.", brand: window.KrApp.brand().name };
       const key = JSON.stringify(view);
       if (lastSent[p.pid] === key) return;
       lastSent[p.pid] = key;
@@ -185,7 +185,7 @@
     (room.players ? room.players() : []).forEach(onPlayerJoin);
     paintRoom();
     // The hub shows its own title card on a game switch.
-    if (!embedded) window.KrApp.showSplash("Krillion", "The rarest answer wins.");
+    if (!embedded) { const b = window.KrApp.brand(); window.KrApp.showSplash(b.name, b.tagline); }
     window.KrRoom = { room, pushViews, onMessage };
   }
 

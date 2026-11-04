@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — pure game core
+   Deep Cut — pure game core
    The immutable reducer for both modes:
 
    Deep Dive   setup → intro → prompt (clock) → reveal (judge the
@@ -75,8 +75,8 @@
       seen.add(pid);
       return { pid, name, manual: p.manual === true };
     });
-    if (players.length < MIN_PLAYERS) fail(`Krillion needs at least ${MIN_PLAYERS} players.`);
-    if (players.length > MAX_PLAYERS) fail(`${MAX_PLAYERS} players is the most Krillion can seat.`);
+    if (players.length < MIN_PLAYERS) fail(`The game needs at least ${MIN_PLAYERS} players.`);
+    if (players.length > MAX_PLAYERS) fail(`${MAX_PLAYERS} players is the most this game can seat.`);
     return players;
   }
 
@@ -252,7 +252,7 @@
     const pf = state.puffer;
     const settings = state.game.settings.puffer;
     const holder = state.players.find((p) => p.pid === pf.holder);
-    // A tier's meter value is its position: Prawn 0, Schooler 1 … One in a Krillion 4.
+    // A tier's meter value is its position: first tier 0 … last tier 4.
     let meter = holder.meter + Math.max(0, tierRank(state, item.tier));
     let hearts = holder.hearts;
     if (meter >= settings.meterForHeart && hearts < settings.maxHearts) {

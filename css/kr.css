@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — host screens (docs/21 look: flat dark stage, one
+   Deep Cut — host screens (docs/21 look: flat dark stage, one
    accent, hairline surfaces, Inter sentence case, one Anton hero
    per screen, no glows, gradients, blur or emoji).
    Game-specific colours only; the per-game accent block lives in
@@ -167,7 +167,14 @@ body {
 .kr-mode { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; color: var(--kr-dim); line-height: 1.4; }
 .kr-mode strong { color: var(--kr-ink); font-weight: 600; }
 .kr-rules { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
-.kr-points { margin-top: 8px; }
+.kr-tagline { margin: 0; color: var(--kr-accent); font-size: 18px; }
+.kr-tagline:empty { display: none; }
+.kr-tier-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.kr-tier-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; align-items: center; }
+.kr-tier-row.no-points { grid-template-columns: minmax(0, 1fr); }
+.kr-tier-row.no-points .kr-tier-pts { display: none; }
+.kr-group.is-top { border-color: var(--kr-accent); }
+.kr-group.is-top .kr-group-points { color: var(--kr-accent); }
 .kr-num { display: flex; flex-direction: column; gap: 4px; font-size: 15px; color: var(--kr-dim); }
 .kr-num .kr-field { width: 100%; }
 .kr-library .gsc-library { border-left: 0; background: transparent; padding: 0; margin: 8px 0; }
@@ -245,8 +252,6 @@ body {
 .kr-group-names { color: var(--kr-dim); font-size: 15px; }
 .kr-group-foot { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
 .kr-group-points { font-weight: 600; font-variant-numeric: tabular-nums; }
-.kr-group.is-krillion { border-color: var(--kr-accent); }
-.kr-group.is-krillion .kr-group-points { color: var(--kr-accent); }
 .kr-group.is-miss .kr-group-points { color: var(--kr-coral); }
 .kr-badge {
   font-size: 15px; padding: 2px 8px; border: 1px solid var(--kr-line-strong); border-radius: var(--kr-radius-sm);

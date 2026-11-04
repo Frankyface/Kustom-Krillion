@@ -1,5 +1,5 @@
-// Krillion — adversarial tests written by the independent tester.
-// Run from games/krillion:  node --test
+// Deep Cut — adversarial tests written by the independent tester.
+// Run from the repo root:  node --test
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -12,14 +12,14 @@ const K = require("../js/kr-core.js");
 
 function fruit() {
   return { text: "Name a fruit", category: "Food", answers: [
-    { text: "Apple", tier: "prawn" }, { text: "Banana", tier: "prawn" },
-    { text: "Mango", tier: "schooler" }, { text: "Kiwi", tier: "rare", aliases: ["Kiwifruit", "Chinese gooseberry"] },
-    { text: "Lychee", tier: "deepcut", aliases: ["Litchi"] }, { text: "Rambutan", tier: "krillion" },
-    { text: "The Durian", tier: "rare" } ] };
+    { text: "Apple", tier: "shallows" }, { text: "Banana", tier: "shallows" },
+    { text: "Mango", tier: "reef" }, { text: "Kiwi", tier: "twilight", aliases: ["Kiwifruit", "Chinese gooseberry"] },
+    { text: "Lychee", tier: "midnight", aliases: ["Litchi"] }, { text: "Rambutan", tier: "abyss" },
+    { text: "The Durian", tier: "twilight" } ] };
 }
 function filler(i) {
-  return { text: `Name thing ${i}`, answers: [{ text: `Alpha${i}`, tier: "prawn" }, { text: `Bravo${i}`, tier: "prawn" },
-    { text: `Delta${i}`, tier: "rare" }, { text: `Echo${i}`, tier: "rare" }, { text: `Zulu${i}`, tier: "krillion" }] };
+  return { text: `Name thing ${i}`, answers: [{ text: `Alpha${i}`, tier: "shallows" }, { text: `Bravo${i}`, tier: "shallows" },
+    { text: `Delta${i}`, tier: "twilight" }, { text: `Echo${i}`, tier: "twilight" }, { text: `Zulu${i}`, tier: "abyss" }] };
 }
 function game(settings, first) {
   const prompts = [first || fruit()];
@@ -55,13 +55,13 @@ test("ADV normalisation: case, spaces, articles, trailing punctuation, accents",
   const pr = K.normalizeGame(game()).prompts[0];
   const tierOf = (t) => { const m = K.matchAnswer(pr, t); return m ? m.tier : null; };
   ["apple", " APPLE ", "an apple", "The   Apple!!", "apple.", "Apple?", "ÀPPLE", "\tapple\u0007"].forEach((t) =>
-    assert.equal(tierOf(t), "prawn", t));
-  assert.equal(tierOf("durian"), "rare", "listed with an article, typed without");
-  assert.equal(tierOf("a durian"), "rare");
-  assert.equal(tierOf("Litchi"), "deepcut", "alias");
-  assert.equal(tierOf("chinese  gooseberry."), "rare", "multi-word alias");
-  assert.equal(tierOf("kiwis"), "rare", "simple plural");
-  assert.equal(tierOf("lychees"), "deepcut");
+    assert.equal(tierOf(t), "shallows", t));
+  assert.equal(tierOf("durian"), "twilight", "listed with an article, typed without");
+  assert.equal(tierOf("a durian"), "twilight");
+  assert.equal(tierOf("Litchi"), "midnight", "alias");
+  assert.equal(tierOf("chinese  gooseberry."), "twilight", "multi-word alias");
+  assert.equal(tierOf("kiwis"), "twilight", "simple plural");
+  assert.equal(tierOf("lychees"), "midnight");
   assert.equal(tierOf("pineapple"), null, "substring is not a match");
   assert.equal(tierOf("app"), null);
   assert.equal(tierOf("!!!"), null);
@@ -70,9 +70,9 @@ test("ADV normalisation: case, spaces, articles, trailing punctuation, accents",
 
 test("ADV validator: alias collisions across answers are refused, case/article-insensitively", () => {
   const bad = (answers) => { const f = fruit(); f.answers = f.answers.concat(answers); return game({}, f); };
-  assert.throws(() => K.validateGame(bad([{ text: "Litchi", tier: "rare" }])), /both answer to/);
-  assert.throws(() => K.validateGame(bad([{ text: "Fig", tier: "rare", aliases: ["the APPLE"] }])), /both answer to/);
-  assert.throws(() => K.validateGame(bad([{ text: "Durian", tier: "rare" }])), /both answer to/);
+  assert.throws(() => K.validateGame(bad([{ text: "Litchi", tier: "twilight" }])), /both answer to/);
+  assert.throws(() => K.validateGame(bad([{ text: "Fig", tier: "twilight", aliases: ["the APPLE"] }])), /both answer to/);
+  assert.throws(() => K.validateGame(bad([{ text: "Durian", tier: "twilight" }])), /both answer to/);
   const f = fruit(); f.answers[0].aliases = ["apple", "The Apple"];
   assert.doesNotThrow(() => K.validateGame(game({}, f)), "an alias duplicating its own entry is harmless");
 });
@@ -88,8 +88,8 @@ test("ADV off-list answers stay pending until reviewed; reveal is blocked meanwh
   assert.equal(q[0].ruled, false);
   assert.equal(K.reduce(s, { type: "revealNext" }), s, "reveal refused while pending");
   assert.equal(K.reduce(s, { type: "review", group: q[0].id, tier: "mythic" }), s, "unknown tier id");
-  assert.equal(K.reduce(s, { type: "review", group: "#0", tier: "krillion" }), s, "an on-list group can't be re-rated");
-  assert.equal(K.reduce(s, { type: "review", group: "nope", tier: "rare" }), s);
+  assert.equal(K.reduce(s, { type: "review", group: "#0", tier: "abyss" }), s, "an on-list group can't be re-rated");
+  assert.equal(K.reduce(s, { type: "review", group: "nope", tier: "twilight" }), s);
   assert.equal(K.reduce(s, { type: "review", group: q[0].id }), s, "missing tier is not a ruling");
   s = K.reduce(s, { type: "review", group: q[0].id, tier: null });
   assert.equal(K.pendingReviews(s), 0);
@@ -102,9 +102,9 @@ test("ADV off-list answers stay pending until reviewed; reveal is blocked meanwh
 test("ADV review assigns a tier; review is locked once the reveal walk starts", () => {
   let s = answerAll(dive(2), { p1: "Dragonfruit", p2: "Apple" });
   const id = K.reviewQueue(s)[0].id;
-  s = K.reduce(s, { type: "review", group: id, tier: "deepcut" });
+  s = K.reduce(s, { type: "review", group: id, tier: "midnight" });
   s = K.reduce(s, { type: "revealNext" });
-  assert.equal(K.reduce(s, { type: "review", group: id, tier: "krillion" }), s);
+  assert.equal(K.reduce(s, { type: "review", group: id, tier: "abyss" }), s);
   s = revealAll(s);
   assert.equal(s.players[0].score, 85);
   assert.equal(K.depth(s, "p1"), 850, "1 point = 10 m");
@@ -116,23 +116,23 @@ test("ADV remember adds the judged answer; it then matches, survives applyLearne
   assert.equal(K.reduce(s, { type: "remember", group: id }), s, "unruled can't be remembered");
   const nv = K.reduce(s, { type: "review", group: id, tier: null });
   assert.equal(K.reduce(nv, { type: "remember", group: id }), nv, "not-valid can't be remembered");
-  s = K.reduce(s, { type: "review", group: id, tier: "deepcut" });
+  s = K.reduce(s, { type: "review", group: id, tier: "midnight" });
   s = K.reduce(s, { type: "remember", group: id });
   assert.equal(s.learned.length, 1);
   assert.equal(K.reduce(s, { type: "remember", group: id }), s, "remembered twice is a no-op");
-  assert.equal(K.matchFor(s, s.dive.index, "dragonfruit").tier, "deepcut", "matches next time (loose)");
+  assert.equal(K.matchFor(s, s.dive.index, "dragonfruit").tier, "midnight", "matches next time (loose)");
   const g2 = K.applyLearned(game(), s.learned);
   K.validateGame(g2);
   const pr = K.normalizeGame(g2).prompts[0];
-  assert.equal(K.matchAnswer(pr, "DRAGON FRUIT").tier, "deepcut", "survives as content (the saved game file)");
+  assert.equal(K.matchAnswer(pr, "DRAGON FRUIT").tier, "midnight", "survives as content (the saved game file)");
   assert.equal(JSON.parse(JSON.stringify(g2)).prompts[0].answers.length, 8);
 });
 
 /* ============ Points, depth, ties, reveal order ============ */
 
-test("ADV per-tier points, depth totals, ties stay ties, reveal order Prawn -> One in a Krillion", () => {
+test("ADV per-tier points, depth totals, ties stay ties, reveal order Shallows -> Abyss", () => {
   let s = answerAll(dive(6), { p1: "Rambutan", p2: "Apple", p3: "Lychee", p4: "Kiwi", p5: "Mango", p6: "Banana" });
-  assert.deepEqual(K.revealOrder(s).map((g) => g.tier), ["prawn", "prawn", "schooler", "rare", "deepcut", "krillion"]);
+  assert.deepEqual(K.revealOrder(s).map((g) => g.tier), ["shallows", "shallows", "reef", "twilight", "midnight", "abyss"]);
   s = revealAll(s);
   assert.deepEqual(s.players.map((p) => p.score), [100, 10, 85, 60, 30, 10]);
   const board = K.depthBoard(s);
@@ -143,7 +143,7 @@ test("ADV per-tier points, depth totals, ties stay ties, reveal order Prawn -> O
   m = K.reduce(m, { type: "closePrompt" });
   m = K.reduce(m, { type: "review", group: K.reviewQueue(m)[0].id, tier: null });
   const o2 = K.revealOrder(m);
-  assert.equal(o2[o2.length - 1].tier, "krillion");
+  assert.equal(o2[o2.length - 1].tier, "abyss");
   assert.ok(o2.slice(0, 2).every((g) => !g.tier), "misses reveal first");
   let t = K.reduce(K.createState(game({ promptsPerGame: 1 }), { players: P(2) }), { type: "start" });
   t = K.reduce(t, { type: "openPrompt", now: T0 });
@@ -167,7 +167,7 @@ test("ADV puffer: used-list refusal incl. an alias of a used answer", () => {
   assert.equal(r.puffer.notice.kind, "used");
   assert.equal(pAns(s, "kiwis").puffer.notice.kind, "used", "plural of a used answer");
   let o = pAns(s, "Guava");
-  o = K.reduce(o, { type: "pufferJudge", tier: "schooler", now: T0 + 900 });
+  o = K.reduce(o, { type: "pufferJudge", tier: "reef", now: T0 + 900 });
   assert.equal(o.puffer.used.length, 2);
   assert.equal(pAns(o, "the guava").puffer.notice.kind, "used", "judged off-list answer is used too");
 });
@@ -213,9 +213,9 @@ test("ADV puffer: both pufferJudge shapes", () => {
   const base = pAns(puffer(3), "Jackfruit");
   assert.ok(base.puffer.pending);
   const t = (e) => K.reduce(base, Object.assign({ type: "pufferJudge", now: T0 + 800 }, e));
-  assert.equal(t({ tier: "rare" }).puffer.used[0].tier, "rare");
-  assert.equal(t({ valid: true }).puffer.used[0].tier, "prawn");
-  assert.equal(t({ valid: true, niche: true }).puffer.used[0].tier, "krillion");
+  assert.equal(t({ tier: "twilight" }).puffer.used[0].tier, "twilight");
+  assert.equal(t({ valid: true }).puffer.used[0].tier, "shallows");
+  assert.equal(t({ valid: true, niche: true }).puffer.used[0].tier, "abyss");
   [t({ tier: null }), t({ valid: false })].forEach((n) => {
     assert.equal(n.puffer.used.length, 0); assert.equal(n.puffer.holder, base.puffer.holder);
     assert.equal(n.puffer.notice.kind, "invalid"); assert.equal(n.clock.deadline, base.clock.deadline, "clock keeps running");
@@ -281,7 +281,7 @@ test("ADV validator fuzz: 39 prompts, 4 answers, unknown tier, 41 chars, junk ty
   assert.throws(() => K.validateGame(g41), /longer than 40/);
   const g40 = game(); g40.prompts[0].answers[0].text = "x".repeat(40);
   assert.doesNotThrow(() => K.validateGame(g40));
-  const gtiers = game(); gtiers.prompts[1].answers.forEach((a) => { a.tier = "prawn"; });
+  const gtiers = game(); gtiers.prompts[1].answers.forEach((a) => { a.tier = "shallows"; });
   assert.throws(() => K.validateGame(gtiers), /3 different tiers/);
   ["__proto__", "toString", "constructor"].forEach((bad) => {
     const g = game(); g.prompts[0].answers[0].tier = bad;
@@ -313,7 +313,7 @@ test("ADV leak: no phone sees others' answers before reveal, nor examples/rated 
   check(s, "p1", ["Secretfruitxyz"]); check(s, "p3", ["Rambutan", "Secretfruitxyz"]); check(s, "p2", ["Rambutan"]);
   s = K.reduce(s, { type: "closePrompt" });
   check(s, "p3", ["Rambutan", "Secretfruitxyz"]);
-  s = K.reduce(s, { type: "review", group: K.reviewQueue(s)[0].id, tier: "rare" });
+  s = K.reduce(s, { type: "review", group: K.reviewQueue(s)[0].id, tier: "twilight" });
   s = K.reduce(s, { type: "revealNext" });
   check(s, "p3", ["Rambutan", "Secretfruitxyz"]);
   check(s, "p2", ["Rambutan"]);
@@ -326,14 +326,14 @@ test("ADV leak: no phone sees others' answers before reveal, nor examples/rated 
 
 test("ADV deep-frozen states survive every event type without mutation", () => {
   const seq = [{ type: "answer", pid: "p1", text: "Durian fruit" }, { type: "answer", pid: "p2", text: "Apple" },
-    { type: "closePrompt" }, { type: "review", group: "durian fruit", tier: "rare" }, { type: "remember", group: "durian fruit" },
+    { type: "closePrompt" }, { type: "review", group: "durian fruit", tier: "twilight" }, { type: "remember", group: "durian fruit" },
     { type: "revealNext" }, { type: "revealNext" }, { type: "revealNext" }, { type: "revealNext" }, { type: "nextPrompt" },
     { type: "undo" }, { type: "finish" }];
   let s = deepFreeze(dive(3));
   seq.forEach((e) => { s = deepFreeze(K.reduce(s, Object.assign({ now: T0 + 100 }, e))); });
   assert.equal(s.phase, "result");
   let p = deepFreeze(puffer(3, { meterForHeart: 1 }));
-  [{ type: "pufferAnswer", text: "Apple" }, { type: "pufferAnswer", text: "Ugli" }, { type: "pufferJudge", tier: "rare" },
+  [{ type: "pufferAnswer", text: "Apple" }, { type: "pufferAnswer", text: "Ugli" }, { type: "pufferJudge", tier: "twilight" },
     { type: "pufferPop" }, { type: "nextRound" }, { type: "pufferStart" }, { type: "undo" }].forEach((e) => {
     p = deepFreeze(K.reduce(p, Object.assign({ now: T0 + 200, pid: p.puffer && p.puffer.holder }, e)));
   });
@@ -348,14 +348,14 @@ test("ADV undo across phases restores exact clock seconds, rulings and learned a
   assert.equal(back.phase, "prompt");
   assert.equal(back.clock.deadline - (T0 + 99000), 18000, "exact remaining time");
   assert.equal(back.dive.answers.p2, undefined);
-  s = K.reduce(s, { type: "review", group: "fig", tier: "krillion" });
+  s = K.reduce(s, { type: "review", group: "fig", tier: "abyss" });
   s = revealAll(s);
   assert.equal(s.phase, "depth");
   let u = s;
   for (let i = 0; i < 10 && u.phase !== "prompt"; i += 1) u = K.reduce(u, { type: "undo", now: T0 + 50000 });
   assert.equal(u.phase, "prompt");
   assert.deepEqual(u.players.map((p) => p.score), [0, 0]);
-  const r = K.reduce(K.reduce(answerAll(dive(2), { p1: "Fig", p2: "Apple" }), { type: "review", group: "fig", tier: "rare" }),
+  const r = K.reduce(K.reduce(answerAll(dive(2), { p1: "Fig", p2: "Apple" }), { type: "review", group: "fig", tier: "twilight" }),
     { type: "remember", group: "fig" });
   assert.equal(K.reduce(r, { type: "undo", now: 1 }).learned.length, 0);
   const fresh = K.createState(game(), { players: P(2) });
@@ -375,7 +375,7 @@ test("ADV prototype-shaped event types, pids and answers are inert", () => {
   let r = answerAll(s, { p1: "toString", p2: "constructor", p3: "__proto__" });
   assert.equal(r.phase, "reveal");
   assert.equal(K.reviewQueue(r).length, 3);
-  K.reviewQueue(r).forEach((g) => { r = K.reduce(r, { type: "review", group: g.id, tier: "rare" }); });
+  K.reviewQueue(r).forEach((g) => { r = K.reduce(r, { type: "review", group: g.id, tier: "twilight" }); });
   assert.equal(K.pendingReviews(r), 0, "rulings keyed by toString/constructor/proto still land");
   r = revealAll(r);
   assert.deepEqual(r.players.map((p) => p.score), [60, 60, 60]);

@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — Puffer Party rendering
+   Deep Cut — Puffer Party rendering
    The ring of seats with the puffer at the holder, the shrinking
    clock in the middle, the used-answers list, the judge's live
    ruling on an off-list answer, hearts, meter and elimination.

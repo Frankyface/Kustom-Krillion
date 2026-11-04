@@ -1,13 +1,13 @@
 /* ============================================================
-   Krillion — content rules (PURE)
-   The JSON contract (spec 20 §3): what a playable Krillion file
-   may hold, how a loaded file is normalised, how answers are
-   normalised and how a player's answer is matched against a
-   prompt's RATED ANSWER LIST. Every prompt ships with its own
-   list of answers, each carrying a depth tier (Prawn … One in a
-   Krillion by default) plus optional aliases; an answer on the
+   Deep Cut — content rules (PURE)
+   The JSON contract (spec 20 §3): what a playable file may hold,
+   how a loaded file is normalised, how answers are normalised
+   and how a player's answer is matched against a prompt's RATED
+   ANSWER LIST. Every prompt ships with its own list of answers,
+   each carrying a depth tier (Shallows … Abyss by default; the
+   host can rename them) plus optional aliases; an answer on the
    list takes its tier automatically, anything else goes to the
-   judge.
+   judge. The game's name and tagline live in settings.brand.
 
    No DOM, no timers, no randomness of its own (an `rng` is
    injected) and nothing here mutates the caller's objects.
@@ -29,16 +29,33 @@
    * The default depth tiers, shallow to deep. Ids are the JSON values. A file
    * may declare its own list (settings.tiers: 2–6 tiers, strictly increasing
    * points); a tier's position in the list is its Puffer Party meter value
-   * (Prawn 0, Schooler 1, Rare 2, Deep Cut 3, One in a Krillion 4).
+   * (Shallows 0, Reef 1, Twilight 2, Midnight 3, Abyss 4).
    */
   const TIERS = Object.freeze([
-    Object.freeze({ id: "prawn", name: "Prawn", points: 10 }),
-    Object.freeze({ id: "schooler", name: "Schooler", points: 30 }),
-    Object.freeze({ id: "rare", name: "Rare", points: 60 }),
-    Object.freeze({ id: "deepcut", name: "Deep Cut", points: 85 }),
-    Object.freeze({ id: "krillion", name: "One in a Krillion", points: 100 }),
+    Object.freeze({ id: "shallows", name: "Shallows", points: 10 }),
+    Object.freeze({ id: "reef", name: "Reef", points: 30 }),
+    Object.freeze({ id: "twilight", name: "Twilight", points: 60 }),
+    Object.freeze({ id: "midnight", name: "Midnight", points: 85 }),
+    Object.freeze({ id: "abyss", name: "Abyss", points: 100 }),
   ]);
   const TIER_IDS = Object.freeze(TIERS.map((t) => t.id));
+
+  /** Files written before the rename used these ids; they load as the zone ids. */
+  const LEGACY_TIER_IDS = Object.freeze({
+    prawn: "shallows", schooler: "reef", rare: "twilight", deepcut: "midnight", krillion: "abyss",
+  });
+
+  /** Name sets the host can pick; a preset changes names only, never ids or points. */
+  const TIER_PRESETS = Object.freeze([
+    Object.freeze({ id: "zones", name: "Depth zones",
+      names: Object.freeze(["Shallows", "Reef", "Twilight", "Midnight", "Abyss"]) }),
+    Object.freeze({ id: "rarity", name: "Rarity",
+      names: Object.freeze(["Common", "Uncommon", "Rare", "Epic", "Legendary"]) }),
+  ]);
+
+  const BRAND_NAME_MAX = 30;
+  const BRAND_TAGLINE_MAX = 60;
+  const DEFAULT_BRAND = Object.freeze({ name: "Deep Cut", tagline: "The rarest answer wins." });
   const MIN_TIERS = 2;
   const MAX_TIERS = 6;
   const TIER_NAME_MAX = 24;
@@ -62,6 +79,7 @@
     mode: "deepDive",
     promptSeconds: 30,
     promptsPerGame: 7,
+    brand: DEFAULT_BRAND,
     tiers: TIERS,
     puffer: Object.freeze({
       hearts: 3, maxHearts: 4, startSeconds: 12, floorSeconds: 3, stepSeconds: 1,
@@ -201,28 +219,126 @@
     return n;
   }
 
-  /** settings.tiers: 2–6 tiers, unique ids, names ≤ 24, strictly rising points. */
-  function normalizeTiers(raw) {
+  /** True when a tier list exists and every id in it is one of the old pre-rename ids. */
+  function isLegacyTierList(tiers) {
+    return Array.isArray(tiers) && tiers.every((t) => isPlainObject(t) && typeof t.id === "string"
+      && has(LEGACY_TIER_IDS, t.id));
+  }
+
+  const mapLegacyId = (id) => (typeof id === "string" && has(LEGACY_TIER_IDS, id) ? LEGACY_TIER_IDS[id] : id);
+
+  /**
+   * An old file (tiers prawn…krillion, or no tier list at all) is read as the
+   * five zone ids. A file with its own tier ids is returned untouched.
+   * Never mutates; returns a copy only when something changes.
+   */
+  function upgradeGame(raw) {
+    if (!isPlainObject(raw)) return raw;
+    const st = isPlainObject(raw.settings) ? raw.settings : null;
+    const declared = st && st.tiers !== undefined && st.tiers !== null;
+    if (declared && !isLegacyTierList(st.tiers)) return raw;
+    const out = Object.assign({}, raw);
+    if (declared) {
+      out.settings = Object.assign({}, st, {
+        tiers: st.tiers.map((t) => Object.assign({}, t, { id: mapLegacyId(t.id) })),
+      });
+    }
+    if (Array.isArray(raw.prompts)) {
+      out.prompts = raw.prompts.map((p) => {
+        if (!isPlainObject(p) || !Array.isArray(p.answers)) return p;
+        return Object.assign({}, p, { answers: p.answers.map((a) => (isPlainObject(a)
+          ? Object.assign({}, a, { tier: mapLegacyId(a.tier) }) : a)) });
+      });
+    }
+    return out;
+  }
+
+  /** settings.tiers: 2–6 tiers, unique ids and names, names ≤ 24, strictly rising points. */
+  function normalizeTiers(raw, lenient) {
     if (raw === undefined || raw === null) return TIERS.map((t) => Object.assign({}, t));
     if (!Array.isArray(raw)) fail("Tiers must be a list.");
     if (raw.length < MIN_TIERS || raw.length > MAX_TIERS) fail(`A file needs ${MIN_TIERS} to ${MAX_TIERS} tiers.`);
+    const list = isLegacyTierList(raw) ? raw.map((t) => Object.assign({}, t, { id: mapLegacyId(t.id) })) : raw;
     const seen = new Set();
-    const out = raw.map((t, i) => {
+    const names = new Set();
+    const out = list.map((t, i) => {
       if (!isPlainObject(t)) fail(`Tier ${i + 1} is not a tier.`);
       const id = typeof t.id === "string" ? t.id.trim() : "";
       if (!/^[a-z0-9-]{1,24}$/.test(id)) fail(`Tier ${i + 1} needs an id in lower-case letters, digits or hyphens.`);
       if (seen.has(id)) fail(`Two tiers share the id “${id}”.`);
       seen.add(id);
-      const name = cleanText(t.name, TIER_NAME_MAX + 1);
-      if (!name || name.length > TIER_NAME_MAX) fail(`Tier “${id}” needs a name of ${TIER_NAME_MAX} characters or fewer.`);
-      const points = pick(t.points, null, 0, 10000, `Points for ${name}`);
-      if (points === null) fail(`${name} needs points.`);
+      const name = cleanText(t.name, lenient ? 200 : TIER_NAME_MAX + 1);
+      if (!lenient) {
+        if (!name) fail(`Tier ${i + 1} needs a name.`);
+        if (name.length > TIER_NAME_MAX) fail(`The tier name “${name}” is longer than ${TIER_NAME_MAX} characters.`);
+        if (names.has(name.toLowerCase())) fail(`Two tiers are both called “${name}”. Give each tier its own name.`);
+        names.add(name.toLowerCase());
+      }
+      const points = pick(t.points, null, 0, 10000, `Points for ${name || `tier ${i + 1}`}`);
+      if (points === null) fail(`${name || `Tier ${i + 1}`} needs points.`);
       return { id, name, points };
     });
     out.forEach((t, i) => {
-      if (i > 0 && t.points <= out[i - 1].points) fail(`${t.name} has to be worth more than ${out[i - 1].name}.`);
+      if (i > 0 && t.points <= out[i - 1].points) {
+        fail(`${t.name || `Tier ${i + 1}`} has to be worth more than ${out[i - 1].name || `tier ${i}`}.`);
+      }
     });
     return out;
+  }
+
+  /* ============ Brand (the game's name and tagline) ============ */
+
+  /** settings.brand: name 1–30, tagline 0–60. Missing parts fall back to the defaults. */
+  function normalizeBrand(raw, lenient) {
+    if (raw === undefined || raw === null) return Object.assign({}, DEFAULT_BRAND);
+    if (!isPlainObject(raw)) fail("The game’s name has to be an object with a name and a tagline.");
+    const field = (key, max, label) => {
+      if (raw[key] === undefined || raw[key] === null) return DEFAULT_BRAND[key];
+      if (typeof raw[key] !== "string") fail(`The game’s ${label} has to be text.`);
+      const text = cleanText(raw[key], lenient ? 200 : max + 1);
+      if (!lenient && text.length > max) fail(`The game’s ${label} is longer than ${max} characters.`);
+      return text;
+    };
+    const name = field("name", BRAND_NAME_MAX, "name");
+    if (!lenient && !name) fail("The game needs a name.");
+    return { name, tagline: field("tagline", BRAND_TAGLINE_MAX, "tagline") };
+  }
+
+  /** The brand to put on screen from any settings object: never empty, never throws. */
+  function brandOfSettings(settings) {
+    const b = settings && isPlainObject(settings.brand) ? settings.brand : {};
+    const name = typeof b.name === "string" ? cleanText(b.name, BRAND_NAME_MAX) : "";
+    const tagline = typeof b.tagline === "string" ? cleanText(b.tagline, BRAND_TAGLINE_MAX) : DEFAULT_BRAND.tagline;
+    return { name: name || DEFAULT_BRAND.name, tagline };
+  }
+
+  /* ============ Tier name presets ============ */
+
+  /** The preset's names for `n` tiers: spread across the set when fewer than five. */
+  function presetNames(preset, n) {
+    const last = preset.names.length - 1;
+    return Array.from({ length: n }, (_, i) => {
+      if (n >= preset.names.length) return i <= last ? preset.names[i] : null;
+      return preset.names[Math.round((i * last) / (n - 1))];
+    });
+  }
+
+  /** A copy of `tiers` renamed from a preset; ids and points stay. Unknown id: unchanged copy. */
+  function applyPreset(tiers, presetId) {
+    const preset = TIER_PRESETS.find((p) => p.id === presetId);
+    const list = tierList(tiers);
+    const names = preset ? presetNames(preset, list.length) : [];
+    return list.map((t, i) => Object.assign({}, t, names[i] ? { name: names[i] } : {}));
+  }
+
+  /** The preset id these names match, or "custom". */
+  function presetOf(tiers) {
+    const list = tierList(tiers);
+    const hit = TIER_PRESETS.find((p) => {
+      const names = presetNames(p, list.length);
+      return list.every((t, i) => names[i] === null || names[i] === t.name);
+    });
+    return hit ? hit.id : "custom";
   }
 
   function normalizePuffer(raw) {
@@ -241,7 +357,9 @@
     };
   }
 
-  function normalizeSettings(raw) {
+  /** `opts.lenient` skips the name checks, so a half-typed name can be held in the setup screen. */
+  function normalizeSettings(raw, opts) {
+    const lenient = !!(opts && opts.lenient);
     const s = isPlainObject(raw) ? raw : {};
     const mode = s.mode === undefined || s.mode === null ? DEFAULT_SETTINGS.mode : s.mode;
     if (MODES.indexOf(mode) < 0) fail("Mode has to be “deepDive” or “puffer”.");
@@ -249,15 +367,26 @@
       mode,
       promptSeconds: pick(s.promptSeconds, DEFAULT_SETTINGS.promptSeconds, 5, 300, "Round seconds"),
       promptsPerGame: pick(s.promptsPerGame, DEFAULT_SETTINGS.promptsPerGame, 1, 50, "Prompts per game"),
-      tiers: normalizeTiers(s.tiers),
+      brand: normalizeBrand(s.brand, lenient),
+      tiers: normalizeTiers(s.tiers, lenient),
       puffer: normalizePuffer(s.puffer),
     };
+  }
+
+  /** "" when these settings would play, else the plain-English reason (names included). */
+  function settingsProblem(settings) {
+    try {
+      normalizeSettings(settings);
+      return "";
+    } catch (err) {
+      return err.message;
+    }
   }
 
   /** The settings a loaded (or half-written) file would play with. */
   function settingsOf(game) {
     try {
-      return normalizeSettings(game && game.settings);
+      return normalizeSettings(upgradeGame(game || {}).settings);
     } catch (err) {
       return normalizeSettings({});
     }
@@ -322,7 +451,8 @@
    * Throws with a plain-English message the editor and the loader show.
    */
   function normalizeGame(raw) {
-    if (!isPlainObject(raw)) fail("That file isn’t a Krillion file — it should be a JSON object.");
+    if (!isPlainObject(raw)) fail("That file isn’t a game file — it should be a JSON object.");
+    raw = upgradeGame(raw);
     const settings = normalizeSettings(raw.settings);
     if (!Array.isArray(raw.prompts)) fail("This file has no prompts list.");
     if (raw.prompts.length > MAX_PROMPTS) fail(`${MAX_PROMPTS} prompts is the most this game can hold.`);
@@ -330,7 +460,7 @@
     if (prompts.length < MIN_PROMPTS) {
       fail(`${prompts.length} prompts isn’t enough — a playable file needs at least ${MIN_PROMPTS}.`);
     }
-    return { title: cleanText(raw.title, GAME_TITLE_MAX) || "Krillion", settings, prompts };
+    return { title: cleanText(raw.title, GAME_TITLE_MAX) || `${settings.brand.name} — Game Night`, settings, prompts };
   }
 
   /** Throws on anything unplayable; returns the file unchanged when it is fine. */
@@ -387,8 +517,8 @@
    */
   function applyLearned(game, learned) {
     if (!isPlainObject(game) || !Array.isArray(game.prompts)) return game;
-    const copy = JSON.parse(JSON.stringify(game));
-    const tiers = settingsOf(game).tiers;
+    const copy = JSON.parse(JSON.stringify(upgradeGame(game)));
+    const tiers = settingsOf(copy).tiers;
     (Array.isArray(learned) ? learned : []).forEach((item) => {
       if (!isPlainObject(item) || !isTier(item.tier, tiers)) return;
       const text = cleanText(item.text, ANSWER_MAX);
@@ -424,11 +554,11 @@
   }
 
   return {
-    TIERS, TIER_IDS, MIN_TIERS, MAX_TIERS, TIER_NAME_MAX, MODES, DEFAULT_SETTINGS,
+    TIERS, TIER_IDS, LEGACY_TIER_IDS, TIER_PRESETS, DEFAULT_BRAND, BRAND_NAME_MAX, BRAND_TAGLINE_MAX, MIN_TIERS, MAX_TIERS, TIER_NAME_MAX, MODES, DEFAULT_SETTINGS,
     PROMPT_MAX, CATEGORY_MAX, ANSWER_MAX, GAME_TITLE_MAX, NAME_MAX, PID_MAX,
     MIN_PROMPTS, MAX_PROMPTS, MIN_ANSWERS, MIN_TIERS_COVERED, MAX_ANSWERS, MAX_ALIASES,
     COMFORTABLE_ANSWERS, METRES_PER_POINT,
-    has, isPlainObject, isIntIn, cleanText, fail, tierList, tierById, isTier, normalizeTiers,
+    has, isPlainObject, isIntIn, cleanText, fail, tierList, tierById, isTier, normalizeTiers, normalizeBrand, brandOfSettings, settingsProblem, upgradeGame, applyPreset, presetOf,
     normaliseAnswer, looseForms, entryKeys, matchAnswer, missingTiers, promptProblem,
     normalizeGame, validateGame, normalizeSettings, settingsOf, warningsFor, applyLearned,
     shuffled, drawOrder,

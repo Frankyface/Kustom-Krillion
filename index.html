@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Krillion</title>
-  <meta name="description" content="A party game of rare answers: everyone answers the same prompt and every answer is graded against a rated list, from Prawn to One in a Krillion. Phones optional. Bring your own prompts as JSON.">
+  <title>Deep Cut</title>
+  <meta name="description" content="A party game of rare answers: everyone answers the same prompt and every answer is graded against a rated list, from the most common answer to the rarest. Phones optional. Bring your own prompts as JSON.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -15,7 +15,7 @@
 <body data-gsc-game="krillion">
 
   <header class="kr-bar gsc-toolbar">
-    <h1 class="kr-bar-title gsc-toolbar-title">Krillion</h1>
+    <h1 id="kr-bar-title" class="kr-bar-title gsc-toolbar-title">Deep Cut</h1>
     <div class="kr-bar-actions gsc-toolbar-actions">
       <span id="kr-room-chip" class="kr-chip hidden"></span>
       <button id="btn-sound" class="kr-btn kr-btn-line kr-bar-btn gsc-toolbar-btn" type="button" aria-pressed="true">Sound</button>
@@ -31,7 +31,8 @@
     <!-- ===================== Setup ===================== -->
     <section id="screen-setup" class="kr-screen kr-setup">
       <div class="kr-setup-head">
-        <h2 class="kr-hero">Krillion</h2>
+        <h2 id="kr-hero" class="kr-hero">Deep Cut</h2>
+        <p id="kr-tagline" class="kr-tagline"></p>
         <p class="kr-lede">Everyone answers the same prompt. Each answer is checked against a rated list &mdash;
           the rarer it is, the deeper you dive. Add the players, pick a mode and press Start.</p>
       </div>
@@ -65,7 +66,6 @@
             <label class="kr-num">Round seconds <input id="kr-set-seconds" class="kr-field" type="number" min="5" max="300" inputmode="numeric"></label>
             <label class="kr-num">Prompts per game <input id="kr-set-prompts" class="kr-field" type="number" min="1" max="50" inputmode="numeric"></label>
           </div>
-          <div id="kr-set-points" class="kr-rules kr-points" aria-label="Points per tier"></div>
           <div id="kr-rules-puffer" class="kr-rules hidden">
             <label class="kr-num">Hearts <input id="kr-set-hearts" class="kr-field" type="number" min="1" max="9" inputmode="numeric"></label>
             <label class="kr-num">Most hearts <input id="kr-set-max" class="kr-field" type="number" min="1" max="9" inputmode="numeric"></label>
@@ -74,6 +74,16 @@
             <label class="kr-num">Meter for a heart <input id="kr-set-meter" class="kr-field" type="number" min="1" max="1000" inputmode="numeric"></label>
             <label class="kr-num">Round cap (0 = none) <input id="kr-set-cap" class="kr-field" type="number" min="0" max="200" inputmode="numeric"></label>
           </div>
+        </div>
+
+        <div class="kr-panel">
+          <h3 class="kr-label">Name &amp; tiers</h3>
+          <label class="kr-num">Game name <input id="kr-set-name" class="kr-field" type="text" maxlength="30" autocomplete="off"></label>
+          <label class="kr-num">Tagline <input id="kr-set-tagline" class="kr-field" type="text" maxlength="60" autocomplete="off"></label>
+          <label class="kr-num">Tier names
+            <select id="kr-set-preset" class="kr-field"></select></label>
+          <div id="kr-set-tiers" class="kr-tier-rows" role="group" aria-label="Tier names and points"></div>
+          <p id="kr-names-warn" class="kr-hint kr-warn" role="status"></p>
         </div>
 
         <div class="kr-panel">
@@ -144,7 +154,7 @@
       </div>
     </section>
 
-    <!-- ===================== Deep Dive: judge, then surface to abyss ===================== -->
+    <!-- ===================== Deep Dive: judge, then shallowest to deepest ===================== -->
     <section id="screen-reveal" class="kr-screen hidden">
       <div class="kr-reveal-head">
         <p id="kr-reveal-text" class="kr-prompt-sm">&nbsp;</p>
@@ -258,6 +268,10 @@
             <select id="kr-ed-mode" class="kr-field"><option value="deepDive">Deep Dive</option><option value="puffer">Puffer Party</option></select></label>
           <label class="kr-num">Round seconds <input id="kr-ed-seconds" class="kr-field" type="number" min="5" max="300"></label>
           <label class="kr-num">Prompts per game <input id="kr-ed-prompts" class="kr-field" type="number" min="1" max="50"></label>
+          <h3 class="kr-label">Name &amp; tiers</h3>
+          <label class="kr-num">Game name <input id="kr-ed-brand-name" class="kr-field" type="text" maxlength="30"></label>
+          <label class="kr-num">Tagline <input id="kr-ed-brand-tagline" class="kr-field" type="text" maxlength="60"></label>
+          <div id="kr-ed-tiers" class="kr-tier-rows" role="group" aria-label="Tier names and points"></div>
           <h3 class="kr-label">Prompts <span id="kr-ed-count" class="kr-count"></span></h3>
           <ol id="kr-ed-list" class="kr-ed-list"></ol>
           <div class="kr-inline">
@@ -270,14 +284,14 @@
           <label class="kr-num">Category <input id="kr-ed-category" class="kr-field" type="text" maxlength="30"></label>
           <h3 class="kr-label">Rated answers <span id="kr-ed-answer-count" class="kr-count"></span></h3>
           <p class="kr-hint">One row per answer. Aliases are other spellings, comma separated. Cover every tier &mdash;
-            common answers are Prawn, genuinely obscure ones are One in a Krillion.</p>
+            common answers go in the first tier, genuinely obscure ones in the last.</p>
           <table class="kr-ed-table">
             <thead><tr><th scope="col">Answer</th><th scope="col">Aliases</th><th scope="col">Tier</th><th scope="col"><span class="visually-hidden">Remove</span></th></tr></thead>
             <tbody id="kr-ed-answers"></tbody>
           </table>
           <button id="btn-ed-add-answer" class="kr-btn kr-btn-line kr-btn-sm" type="button">Add an answer</button>
           <p class="kr-hint">The library workflow: press <strong>Download for the library</strong>, drop the file into
-            <span class="kr-mono">games/krillion/sets/</span> and paste the line it gives you into
+            <span class="kr-mono">sets/</span> and paste the line it gives you into
             <span class="kr-mono">sets/index.json</span>.</p>
         </div>
       </div>
@@ -287,7 +301,7 @@
     <section id="screen-phone" class="kr-screen kr-phone hidden">
       <div id="gsc-join"></div>
       <div id="kr-phone-card" class="kr-phone-card">
-        <p id="kr-phone-kicker" class="kr-phone-kicker">Krillion</p>
+        <p id="kr-phone-kicker" class="kr-phone-kicker">Deep Cut</p>
         <p id="kr-phone-prompt" class="kr-phone-prompt" aria-live="polite">Waiting for the host&hellip;</p>
         <p id="kr-phone-clock" class="kr-phone-clock" aria-live="off"></p>
         <form id="kr-phone-form" class="kr-phone-form hidden" autocomplete="off">

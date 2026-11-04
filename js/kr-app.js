@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — host glue
+   Deep Cut — host glue
    Owns the app state (one serialisable object), persistence, the
    setup screen, the host's buttons and hotkeys, the clock hooks
    and the sound cues. All game rules live in kr-core.js; this
@@ -27,7 +27,7 @@ function krStoreSuffix() {
   return clean ? `-${clean}` : "";
 }
 
-const KR_STORAGE_KEY = `gsc-kr-state-v1${krStoreSuffix()}`;
+const KR_STORAGE_KEY = `kk-state-v1${krStoreSuffix()}`;
 const KR_MANUAL_PREFIX = "m";
 
 let krApp = krFreshApp();
@@ -40,7 +40,7 @@ function krFreshApp() {
     resumable: null,          // the game kept by "Game lobby → Keep this game" (clock frozen)
     game: null,
     learnedLog: [],           // every "Add to this question" this session, for the editor
-    setup: { players: [], mode: "deepDive", shuffle: true, settingsTouched: false,
+    setup: { players: [], mode: "deepDive", shuffle: true, settingsTouched: false, namesTouched: false,
       settings: window.KrCore.normalizeSettings({}), nextManual: 1 },
     source: "loading…", sourceKind: "default", sourceUrl: null,
     roomCode: null, phoneCount: 0,
@@ -160,6 +160,18 @@ function krUsableCore(c) {
   return true;
 }
 
+/** Older saves: bring the setup's settings up to date (brand, zone ids); names may be half-typed. */
+function krReviveSetup(saved) {
+  if (!saved.setup || typeof saved.setup !== "object") return;
+  try {
+    const K = window.KrCore;
+    saved.setup.settings = K.normalizeSettings(K.upgradeGame({ settings: saved.setup.settings }).settings, { lenient: true });
+  } catch (err) {
+    console.warn("Resetting damaged saved settings:", err);
+    delete saved.setup.settings;
+  }
+}
+
 const KR_SAVE_UNREADABLE = "Your saved game couldn’t be read, so it was cleared";
 
 function krLoadSaved() {
@@ -168,7 +180,11 @@ function krLoadSaved() {
     if (!raw) return null;
     const saved = JSON.parse(raw);
     if (!saved || typeof saved !== "object") throw new Error("not an object");
-    if (saved.game) window.KrCore.validateGame(saved.game);
+    if (saved.game) {
+      window.KrCore.validateGame(saved.game);
+      saved.game = window.KrCore.upgradeGame(saved.game);
+    }
+    krReviveSetup(saved);
     if (typeof saved.roomCode !== "string") saved.roomCode = null;
     if (!Array.isArray(saved.learnedLog)) saved.learnedLog = [];
     ["core", "resumable"].forEach((key) => {
@@ -269,20 +285,31 @@ async function krLoadContent() {
   }
 }
 
-/** A file's settings become the setup's, unless the host changed them — tiers always follow the file. */
+/**
+ * A file's settings become the setup's, unless the host changed them. Tiers with
+ * different ids always follow the file; with the same ids the host's points (if
+ * touched) and names (if edited) are kept and the rest follow the file.
+ */
 function krSettingsFor(game) {
   const fromFile = window.KrCore.settingsOf(game);
   const setup = krApp.setup;
-  if (!setup.settingsTouched) return { settings: fromFile, mode: fromFile.mode };
-  const sameTiers = fromFile.tiers.map((t) => t.id).join() === setup.settings.tiers.map((t) => t.id).join();
+  const pointsKept = !!setup.settingsTouched;
+  const namesKept = !!setup.namesTouched;
+  if (!pointsKept && !namesKept) return { settings: fromFile, mode: fromFile.mode };
+  const mine = setup.settings;
+  const sameTiers = fromFile.tiers.map((t) => t.id).join() === mine.tiers.map((t) => t.id).join();
+  const tiers = sameTiers ? fromFile.tiers.map((t, i) => ({
+    id: t.id, name: namesKept ? mine.tiers[i].name : t.name, points: pointsKept ? mine.tiers[i].points : t.points,
+  })) : fromFile.tiers;
   return {
-    settings: Object.assign({}, setup.settings, sameTiers ? {} : { tiers: fromFile.tiers }),
-    mode: setup.mode,
+    settings: Object.assign({}, pointsKept ? mine : fromFile, { tiers, brand: namesKept ? mine.brand : fromFile.brand }),
+    mode: pointsKept ? setup.mode : fromFile.mode,
   };
 }
 
-function krUseGame(game, source, kind, url) {
-  window.KrCore.validateGame(game);
+function krUseGame(raw, source, kind, url) {
+  window.KrCore.validateGame(raw);
+  const game = window.KrCore.upgradeGame(raw);
   const picked = krSettingsFor(game);
   krSet({
     game, source, sourceKind: kind || "custom", sourceUrl: url || null,
@@ -318,7 +345,7 @@ function krSetSetup(patch) {
 function krChangeSettings(change) {
   const next = change(JSON.parse(JSON.stringify(krApp.setup.settings)));
   try {
-    const clean = window.KrCore.normalizeSettings(next);
+    const clean = window.KrCore.normalizeSettings(next, { lenient: true });
     krError("");
     krSetSetup({ settings: clean, settingsTouched: true });
   } catch (err) {
@@ -327,13 +354,30 @@ function krChangeSettings(change) {
   }
 }
 
+/** Name & tiers edits are held as typed (even when invalid); the setup screen says what to fix. */
+function krEditNames(change) {
+  const next = JSON.parse(JSON.stringify(krApp.setup.settings));
+  change(next);
+  try {
+    krSetSetup({ settings: window.KrCore.normalizeSettings(next, { lenient: true }), namesTouched: true });
+  } catch (err) {
+    krError(err.message);
+    krRender();
+  }
+}
+
+function krPickPreset(id) {
+  if (id === "custom") return;
+  krEditNames((s) => { s.tiers = window.KrCore.applyPreset(s.tiers, id); });
+}
+
 function krAddPlayer(name, pid, manual) {
   const clean = window.KrCore.cleanText(name, window.KrCore.NAME_MAX);
   if (!clean || !pid) return;
   const players = krApp.setup.players;
   if (players.some((p) => p.pid === pid)) return;
   if (players.length >= window.KrCore.MAX_PLAYERS) {
-    krError(`${window.KrCore.MAX_PLAYERS} players is the most Krillion can seat.`);
+    krError(`${window.KrCore.MAX_PLAYERS} players is the most this game can seat.`);
     return;
   }
   krSetSetup({ players: players.concat([{ pid, name: clean, manual: manual === true }]) });
@@ -366,6 +410,8 @@ function krEffectiveGame() {
 function krStart() {
   krError("");
   if (!krApp.game) { krError("Load some prompts before you start."); return; }
+  const problem = window.KrCore.settingsProblem(krApp.setup.settings);
+  if (problem) { krError(`Fix the name and tiers first: ${problem}`); return; }
   try {
     const state = window.KrCore.createState(krEffectiveGame(), {
       players: krApp.setup.players, mode: krApp.setup.mode, shuffle: !!krApp.setup.shuffle, rng: Math.random,
@@ -479,7 +525,7 @@ function krWireSetup() {
   KR_NUMBERS.forEach(([id, put]) => {
     $(id).addEventListener("change", (e) => krChangeSettings((s) => { put(s, Number(e.target.value)); return s; }));
   });
-  $("kr-set-points").addEventListener("change", (e) => {
+  $("kr-set-tiers").addEventListener("change", (e) => {
     const id = e.target && e.target.dataset ? e.target.dataset.tier : "";
     if (!id) return;
     krChangeSettings((s) => {
@@ -487,6 +533,14 @@ function krWireSetup() {
       return s;
     });
   });
+  $("kr-set-tiers").addEventListener("input", (e) => {
+    const id = e.target && e.target.dataset ? e.target.dataset.tierName : "";
+    if (!id) return;
+    krEditNames((s) => { s.tiers.forEach((t) => { if (t.id === id) t.name = e.target.value; }); });
+  });
+  $("kr-set-name").addEventListener("input", (e) => krEditNames((s) => { s.brand.name = e.target.value; }));
+  $("kr-set-tagline").addEventListener("input", (e) => krEditNames((s) => { s.brand.tagline = e.target.value; }));
+  $("kr-set-preset").addEventListener("change", (e) => krPickPreset(e.target.value));
   ["kr-mode-deep", "kr-mode-puffer"].forEach((id) => {
     $(id).addEventListener("change", (e) => {
       if (e.target.checked) krSetSetup({ mode: e.target.value, settingsTouched: true });
@@ -586,6 +640,11 @@ function krBoot() {
   if (krPendingNote) krError(krPendingNote);
 }
 
+/** The name and tagline currently in force (the running game's, else the setup's). */
+function krBrand() {
+  return window.KrView.brandFor(krApp);
+}
+
 if (!(window.GSC && window.GSC.mode && window.GSC.mode.endsWith("-player"))) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", krBoot);
   else krBoot();
@@ -607,6 +666,7 @@ window.KrApp = {
   start: krStart,
   resume: krResume,
   showSplash: krShowSplash,
+  brand: krBrand,
   save: krSave,
   storeSuffix: krStoreSuffix,
   STORAGE_KEY: KR_STORAGE_KEY,

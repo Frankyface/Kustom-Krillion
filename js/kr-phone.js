@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — phone controller
+   Deep Cut — phone controller
    Thin by design: it renders exactly the view the host sent and
    sends back one answer. It never rates, never reveals, never
    advances, and never learns anything the host did not address
@@ -23,7 +23,7 @@
   let clockTimer = 0;
 
   const KICKERS = {
-    wait: "Krillion", answer: "Your answer", reveal: "Your dive", "puffer-hold": "You have the puffer",
+    wait: "", answer: "Your answer", reveal: "Your dive", "puffer-hold": "You have the puffer",
     "puffer-watch": "Puffer Party", out: "You’re out", result: "Final result",
   };
   const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
@@ -93,7 +93,9 @@
     if (key !== lastKey) { lastKey = key; $("kr-phone-text").value = ""; }
     const writable = has(WRITABLE, view.screen) && !view.waiting;
     $("kr-phone-card").className = `kr-phone-card is-${view.screen}${view.sent ? " is-sent" : ""}`;
-    setText("kr-phone-kicker", has(KICKERS, view.screen) ? KICKERS[view.screen] : KICKERS.wait);
+    const brand = typeof view.brand === "string" && view.brand ? view.brand.slice(0, 30) : "Deep Cut";
+    if (view.brand) document.title = brand;
+    setText("kr-phone-kicker", has(KICKERS, view.screen) && KICKERS[view.screen] ? KICKERS[view.screen] : brand);
     const showPrompt = ["answer", "reveal", "puffer-hold", "puffer-watch", "out"].indexOf(view.screen) >= 0;
     setText("kr-phone-prompt", showPrompt && view.prompt ? view.prompt
       : (view.screen === "result" ? "That’s the game." : "Waiting for the host…"));

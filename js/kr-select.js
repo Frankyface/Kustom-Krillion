@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — pure selectors
+   Deep Cut — pure selectors
    Everything that READS the state: the answer groups of a Deep
    Dive prompt (each player's answer matched against the prompt's
    rated list, off-list answers grouped by their normalised key),
@@ -24,7 +24,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (Content) {
   "use strict";
 
-  const { TIERS, has, isPlainObject, cleanText, normaliseAnswer, matchAnswer, tierById,
+  const { TIERS, brandOfSettings, has, isPlainObject, cleanText, normaliseAnswer, matchAnswer, tierById,
     ANSWER_MAX, METRES_PER_POINT } = Content;
 
   const PHONE_MSGS = Object.freeze(["answer", "puffer"]);
@@ -45,6 +45,11 @@
   /** Match `text` against prompt `index`, remembered answers included. */
   function matchFor(state, index, text) {
     return matchAnswer(promptOf(state, index), text, learnedFor(state, index));
+  }
+
+  /** The game's name and tagline (defaults when the state predates them). */
+  function brandOf(state) {
+    return brandOfSettings(state && state.game ? state.game.settings : null);
   }
 
   function tiersOf(state) {
@@ -130,8 +135,8 @@
   }
 
   /**
-   * The reveal order: misses (not valid, no answer) first, then surface to
-   * abyss — Prawn up to One in a Krillion — so the rarest answers land last.
+   * The reveal order: misses (not valid, no answer) first, then the shallowest tier up to
+   * the deepest — so the rarest answers land last.
    * Inside a tier the bigger group goes first; ties keep seat order.
    */
   function revealOrder(state) {
@@ -338,6 +343,10 @@
    * before it is revealed; never the prompt's rated answer list.
    */
   function phoneView(state, pid, now) {
+    return Object.assign({ brand: brandOf(state).name }, phoneViewBody(state, pid, now));
+  }
+
+  function phoneViewBody(state, pid, now) {
     if (!state || !Array.isArray(state.players) || !pid) return { screen: "wait", sub: "Stand by." };
     const me = state.players.find((p) => p.pid === pid);
     if (!me) return { screen: "wait", sub: "You’ll be in the next game — watch the big screen." };
@@ -380,7 +389,7 @@
   }
 
   return {
-    promptOf, learnedFor, matchFor, tiersOf, tierRank, pointsFor, tierTally,
+    promptOf, learnedFor, matchFor, brandOf, tiersOf, tierRank, pointsFor, tierTally,
     groups, revealOrder, reviewQueue, pendingReviews, answeredCount, resultFor,
     metres, depthBoard, depth, pufferStandings, standings, ranked,
     alive, nextAlive, pufferSeconds, ring, nameOf, clockLeft, usedList,

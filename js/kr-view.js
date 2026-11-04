@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — host rendering (setup + Deep Dive + result)
+   Deep Cut — host rendering (setup + Deep Dive + result)
    Reads the app state, writes the DOM. Dispatches nothing
    itself: every button calls back into window.KrApp. Every
    string reaches the page through textContent — never as markup.
@@ -57,7 +57,7 @@ const KrView = (function () {
     return t ? t.name : "";
   }
 
-  /** "Prawn 2 · Schooler 0 · … · Missed 1" — the host's per-prompt tally. */
+  /** "Shallows 2 · Reef 0 · … · Missed 1" — the host's per-prompt tally. */
   function tallyText(c, revealedOnly) {
     const t = core().tierTally(c, revealedOnly);
     const parts = t.tiers.map((row) => `${row.name} ${row.count}`);
@@ -172,35 +172,84 @@ const KrView = (function () {
     $("kr-mode-puffer").checked = puffer;
     show($("kr-rules-deep"), !puffer);
     show($("kr-rules-puffer"), puffer);
-    show($("kr-set-points"), !puffer);
-    renderPointInputs(s.tiers);
+    renderNameFields(s);
+    renderTierRows(s.tiers, !puffer);
     $("kr-set-shuffle").checked = !!state.setup.shuffle;
   }
 
-  /** One points field per tier of the loaded file (built once per tier list). */
-  function renderPointInputs(tiers) {
-    const box = $("kr-set-points");
-    const sig = tiers.map((t) => `${t.id}:${t.name}`).join("|");
+  function textField(id, label, max) {
+    const input = el("input", "kr-field");
+    input.type = "text";
+    input.id = id;
+    input.maxLength = max;
+    input.autocomplete = "off";
+    input.setAttribute("aria-label", label);
+    return input;
+  }
+
+  /** Game name, tagline and the preset picker (typed text is never overwritten while focused). */
+  function renderNameFields(s) {
+    const put = (id, value) => {
+      const node = $(id);
+      if (node && document.activeElement !== node) node.value = value;
+    };
+    put("kr-set-name", s.brand.name);
+    put("kr-set-tagline", s.brand.tagline);
+    const pick = $("kr-set-preset");
+    if (!pick.options.length) {
+      core().TIER_PRESETS.concat([{ id: "custom", name: "Custom (your own names)" }]).forEach((p) => {
+        const o = el("option", null, p.name);
+        o.value = p.id;
+        pick.appendChild(o);
+      });
+    }
+    pick.value = core().presetOf(s.tiers);
+  }
+
+  /** One row per tier: a name field and a points field (points hide in Puffer Party). */
+  function renderTierRows(tiers, withPoints) {
+    const box = $("kr-set-tiers");
+    const sig = tiers.map((t) => t.id).join("|");
     if (box.dataset.sig !== sig) {
       box.replaceChildren();
-      tiers.forEach((t) => {
-        const label = el("label", "kr-num", `${t.name} `);
-        const input = el("input", "kr-field");
-        input.type = "number";
-        input.min = "0";
-        input.max = "10000";
-        input.inputMode = "numeric";
-        input.id = `kr-set-pt-${t.id}`;
-        input.dataset.tier = t.id;
-        label.appendChild(input);
-        box.appendChild(label);
+      tiers.forEach((t, i) => {
+        const row = el("div", "kr-tier-row");
+        const name = textField(`kr-set-tn-${t.id}`, `Name of tier ${i + 1}`, core().TIER_NAME_MAX);
+        name.dataset.tierName = t.id;
+        const pts = el("input", "kr-field kr-tier-pts");
+        pts.type = "number";
+        pts.min = "0";
+        pts.max = "10000";
+        pts.inputMode = "numeric";
+        pts.id = `kr-set-pt-${t.id}`;
+        pts.dataset.tier = t.id;
+        pts.setAttribute("aria-label", `Points for tier ${i + 1}`);
+        row.appendChild(name);
+        row.appendChild(pts);
+        box.appendChild(row);
       });
       box.dataset.sig = sig;
     }
+    [...box.children].forEach((row) => row.classList.toggle("no-points", !withPoints));
     tiers.forEach((t) => {
-      const input = $(`kr-set-pt-${t.id}`);
-      if (input && document.activeElement !== input) input.value = String(t.points);
+      const name = $(`kr-set-tn-${t.id}`);
+      const pts = $(`kr-set-pt-${t.id}`);
+      if (name && document.activeElement !== name) name.value = t.name;
+      if (pts && document.activeElement !== pts) pts.value = String(t.points);
     });
+  }
+
+  /** The name that heads the page: the running game's, else the one being set up. */
+  function brandFor(state) {
+    return state.core ? core().brandOf(state.core) : core().brandOfSettings(state.setup.settings);
+  }
+
+  function paintBrand(state) {
+    const brand = brandFor(state);
+    document.title = brand.name;
+    setText("kr-bar-title", brand.name);
+    setText("kr-hero", brand.name);
+    setText("kr-tagline", brand.tagline);
   }
 
   function setupWarning(state) {
@@ -208,7 +257,7 @@ const KrView = (function () {
     if (!state.game) return "Load some prompts before you start.";
     if (n < 2) return "Add at least two players to start.";
     if (n === 2) return "Two players works; three or more makes a better dive.";
-    if (n > core().MAX_PLAYERS) return `${core().MAX_PLAYERS} players is the most Krillion can seat.`;
+    if (n > core().MAX_PLAYERS) return `${core().MAX_PLAYERS} players is the most this game can seat.`;
     return "";
   }
 
@@ -218,10 +267,11 @@ const KrView = (function () {
       ? `${state.game.prompts.length} prompts with rated answers.` : "No prompts loaded yet.");
     renderPlayers(state);
     renderSettings(state);
-    const warn = setupWarning(state);
-    setText("kr-setup-warn", warn);
+    const problem = core().settingsProblem(state.setup.settings);
+    setText("kr-setup-warn", setupWarning(state));
+    setText("kr-names-warn", problem ? `Fix this before you start: ${problem}` : "");
     const n = state.setup.players.length;
-    $("btn-start").disabled = !state.game || n < 2 || n > core().MAX_PLAYERS;
+    $("btn-start").disabled = !state.game || n < 2 || n > core().MAX_PLAYERS || !!problem;
     show($("btn-resume"), !!state.resumable);
   }
 
@@ -331,7 +381,9 @@ const KrView = (function () {
   }
 
   function groupCard(c, g, shown, place) {
-    const li = el("li", `kr-group${shown ? " is-shown" : ""}${shown && g.tier === "krillion" ? " is-krillion" : ""}`
+    const tiers = core().tiersOf(c);
+    const top = shown && g.tier === tiers[tiers.length - 1].id;
+    const li = el("li", `kr-group${shown ? " is-shown" : ""}${top ? " is-top" : ""}`
       + `${shown && !g.tier ? " is-miss" : ""}`);
     li.dataset.place = String(place);
     if (!shown) {
@@ -373,7 +425,10 @@ const KrView = (function () {
 
   function revealState(c, pending, total) {
     if (pending) return `Rule ${pending} ${pending === 1 ? "answer" : "answers"} that ${pending === 1 ? "isn’t" : "aren’t"} on the list, then reveal.`;
-    if (c.dive.revealed < total) return `${c.dive.revealed} of ${total} revealed — misses first, then surface to abyss.`;
+    const tiers = core().tiersOf(c);
+    if (c.dive.revealed < total) {
+      return `${c.dive.revealed} of ${total} revealed — misses first, then ${tiers[0].name} to ${tiers[tiers.length - 1].name}.`;
+    }
     return "Everything is revealed.";
   }
 
@@ -429,7 +484,8 @@ const KrView = (function () {
     const puffer = c.mode === "puffer";
     const rows = core().standings(c);
     const winners = rows.filter((r) => c.winners.indexOf(r.pid) >= 0);
-    setText("kr-result-kicker", puffer ? "Puffer Party — last one floating" : "Deep Dive — deepest diver");
+    const name = core().brandOf(c).name;
+    setText("kr-result-kicker", `${name} · ${puffer ? "Puffer Party — last one floating" : "Deep Dive — deepest diver"}`);
     setText("kr-winner", winners.map((r) => r.name).join(" & ") || "No winner");
     const top = winners[0];
     setText("kr-winner-sub", !top ? "" : (puffer
@@ -461,6 +517,7 @@ const KrView = (function () {
   // in the game is on each screen's own round line (#kr-prompt-round, #kr-pround).
   function render(state) {
     const screen = screenFor(state);
+    paintBrand(state);
     SCREENS.forEach((name) => show($(`screen-${name}`), name === screen));
     const sound = $("btn-sound");
     const on = window.KrSound.enabled();
@@ -474,7 +531,7 @@ const KrView = (function () {
     else RENDERERS[screen](state);
   }
 
-  return { render, screenFor, renderReef, tierButtons, rememberButton, renderList, tierName, numberText };
+  return { render, screenFor, brandFor, renderReef, tierButtons, rememberButton, renderList, tierName, numberText };
 })();
 
 window.KrView = KrView;

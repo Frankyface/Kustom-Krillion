@@ -316,7 +316,7 @@
 
   /* ============ Standalone player ============ */
 
-  const PLAYER_STORE = "gsc-standalone-player-v1";
+  const PLAYER_STORE = "kk-standalone-player-v1";
 
   function readStore() {
     try {

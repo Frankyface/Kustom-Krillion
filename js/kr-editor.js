@@ -1,5 +1,5 @@
 /* ============================================================
-   Krillion — in-page prompt editor
+   Deep Cut — in-page prompt editor
    Build or tweak a prompt file: settings, a prompt list, and for
    the selected prompt a rated-answer table (answer · aliases ·
    tier). Download it as prompts.json, download it ready for the
@@ -11,7 +11,7 @@
 
 "use strict";
 
-const KR_DRAFT_KEY = `gsc-kr-draft-v1${window.KrApp && window.KrApp.storeSuffix ? window.KrApp.storeSuffix() : ""}`;
+const KR_DRAFT_KEY = `kk-draft-v1${window.KrApp && window.KrApp.storeSuffix ? window.KrApp.storeSuffix() : ""}`;
 
 let krDraft = null;
 let krEdIndex = 0;
@@ -27,8 +27,9 @@ function krBlankPrompt() {
 function krBlankDraft() {
   const d = window.KrCore.DEFAULT_SETTINGS;
   return {
-    title: "My Krillion prompts",
+    title: "My prompts",
     settings: { mode: d.mode, promptSeconds: d.promptSeconds, promptsPerGame: d.promptsPerGame,
+      brand: Object.assign({}, window.KrCore.DEFAULT_BRAND),
       tiers: window.KrCore.TIERS.map((t) => Object.assign({}, t)), puffer: Object.assign({}, d.puffer) },
     prompts: [krBlankPrompt()],
   };
@@ -50,7 +51,7 @@ function krLoadDraft() {
     const draft = JSON.parse(raw);
     if (!draft || !Array.isArray(draft.prompts) || !draft.prompts.length) return null;
     if (!draft.settings || typeof draft.settings !== "object") draft.settings = krBlankDraft().settings;
-    return draft;
+    return window.KrCore.upgradeGame(draft);
   } catch (err) {
     console.warn("Ignoring a corrupt editor draft:", err);
     return null;
@@ -64,8 +65,26 @@ function krEditorMessage(message) {
   show(node, !!message);
 }
 
+/** The draft's tiers as typed (names may be half-edited); the defaults when the file has none. */
 function krEdTiers() {
-  return window.KrCore.settingsOf(krDraft).tiers;
+  try {
+    return window.KrCore.normalizeSettings(krDraft.settings, { lenient: true }).tiers;
+  } catch (err) {
+    return window.KrCore.settingsOf(krDraft).tiers;
+  }
+}
+
+/** Make sure the draft carries an explicit brand and tier list, so Download JSON exports them. */
+function krEnsureNaming() {
+  const s = krDraft.settings;
+  try {
+    const lenient = window.KrCore.normalizeSettings(s, { lenient: true });
+    s.brand = lenient.brand;
+    s.tiers = lenient.tiers;
+  } catch (err) {
+    if (!s.brand || typeof s.brand !== "object") s.brand = Object.assign({}, window.KrCore.DEFAULT_BRAND);
+    s.tiers = window.KrCore.settingsOf(krDraft).tiers;
+  }
 }
 
 function krCurrent() {
@@ -98,6 +117,40 @@ function krRenderSettings() {
   $("kr-ed-mode").value = s.mode === "puffer" ? "puffer" : "deepDive";
   $("kr-ed-seconds").value = String(s.promptSeconds || 30);
   $("kr-ed-prompts").value = String(s.promptsPerGame || 7);
+  krRenderNaming();
+}
+
+function krNumberField(label, value, onChange) {
+  const input = el("input", "kr-field");
+  input.type = "number";
+  input.min = "0";
+  input.max = "10000";
+  input.value = String(value);
+  input.setAttribute("aria-label", label);
+  input.addEventListener("change", () => onChange(Number(input.value)));
+  return input;
+}
+
+/** Game name, tagline, and a name + points field per tier. */
+function krRenderNaming() {
+  krEnsureNaming();
+  const s = krDraft.settings;
+  $("kr-ed-brand-name").value = s.brand.name || "";
+  $("kr-ed-brand-tagline").value = s.brand.tagline || "";
+  const box = $("kr-ed-tiers");
+  box.replaceChildren();
+  s.tiers.forEach((t, i) => {
+    const row = el("div", "kr-tier-row");
+    const name = el("input", "kr-field");
+    name.type = "text";
+    name.maxLength = window.KrCore.TIER_NAME_MAX;
+    name.value = t.name || "";
+    name.setAttribute("aria-label", `Name of tier ${i + 1}`);
+    name.addEventListener("input", () => { t.name = name.value; krTouchDraft(); krRenderPrompt(); });
+    row.appendChild(name);
+    row.appendChild(krNumberField(`Points for tier ${i + 1}`, t.points, (n) => { t.points = n; krTouchDraft(); }));
+    box.appendChild(row);
+  });
 }
 
 function krRenderList() {
@@ -119,7 +172,7 @@ function krTierSelect(entry) {
   const select = el("select", "kr-field");
   select.setAttribute("aria-label", "Tier");
   krEdTiers().forEach((t) => {
-    const o = el("option", null, t.name);
+    const o = el("option", null, t.name || t.id);
     o.value = t.id;
     select.appendChild(o);
   });
@@ -232,8 +285,8 @@ function krEditorLibrary() {
       "rated answers": krDraft.prompts.reduce((n, p) => n + p.answers.length, 0) },
   };
   $("kr-editor-manifest").textContent = [
-    `1. Save the download as  games/krillion/sets/${file}`,
-    "2. Add this entry to the list in  games/krillion/sets/index.json :", "",
+    `1. Save the download as  sets/${file}`,
+    "2. Add this entry to the list in  sets/index.json :", "",
     JSON.stringify(entry, null, 2), "",
     "3. Commit both files. The set then shows up in the picker on the setup screen.",
   ].join("\n");
@@ -295,6 +348,8 @@ function krWireEditorFields() {
   [["kr-ed-seconds", "promptSeconds"], ["kr-ed-prompts", "promptsPerGame"]].forEach(([id, key]) => {
     $(id).addEventListener("change", (e) => { krDraft.settings[key] = Number(e.target.value); krTouchDraft(); });
   });
+  $("kr-ed-brand-name").addEventListener("input", (e) => { krDraft.settings.brand.name = e.target.value; krTouchDraft(); });
+  $("kr-ed-brand-tagline").addEventListener("input", (e) => { krDraft.settings.brand.tagline = e.target.value; krTouchDraft(); });
   $("kr-ed-text").addEventListener("input", (e) => { krCurrent().text = e.target.value; krTouchDraft(); });
   $("kr-ed-category").addEventListener("input", (e) => { krCurrent().category = e.target.value; krTouchDraft(); });
   $("btn-ed-add-answer").addEventListener("click", () => {

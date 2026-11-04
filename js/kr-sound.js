@@ -1,19 +1,19 @@
 /* ============================================================
-   Krillion — WebAudio cues
+   Deep Cut — WebAudio cues
    Synthesised, no audio files, nothing plays before a user
    gesture. The preference is shared with the rest of the hub
-   under localStorage key `gsc-sound` (architecture 00 §10).
+   under localStorage key `kk-sound` (architecture 00 §10).
 
    The palette is underwater: a sonar ping when an answer lands,
    a soft bubble for each reveal, a low sting rolling into the
-   deep for One in a Krillion, a dull thud for a miss and a sharp
+   deep for the deepest tier, a dull thud for a miss and a sharp
    pop when the puffer goes off.
    ============================================================ */
 
 "use strict";
 
 (function (root) {
-  const KEY = "gsc-sound";
+  const KEY = "kk-sound";
   let ctx = null;
   let enabled = true;
 

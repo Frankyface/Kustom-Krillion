@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Krillion harness (KR-I1–KR-I6)</title>
+  <title>Deep Cut harness (KR-I1–KR-I6)</title>
   <style>
     body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #f6f7f9; margin: 0; padding: 1.6rem; }
     h1 { font-size: 1.15rem; margin: 0 0 0.4rem; }
@@ -24,7 +24,7 @@
   </style>
 </head>
 <body>
-  <h1>Krillion — loopback harness (success states KR-I1 … KR-I6, spec 20 §7)</h1>
+  <h1>Deep Cut — loopback harness (success states KR-I1 … KR-I6, spec 20 §7)</h1>
   <p class="lede">This page <em>is</em> the shell (verification plan 06 §3): it loads the real game page as an embedded
     host plus five embedded phones and speaks the bridge protocol from architecture 00 §6 itself. No PeerJS, no hub.
     The load-bearing assertions: while a prompt is open no answer is anywhere in the host document and no phone holds
@@ -160,8 +160,8 @@
     // ?store=harness keeps this run out of the real host's save on the same origin.
     const HOST_SRC = "../index.html?embed=host&harness=1&store=harness&game=tests/fixtures/harness-game.json";
     const PHONE_SRC = "../index.html?embed=player&harness=1&store=harness";
-    const KEYS = ["gsc-kr-state-v1-harness", "gsc-kr-draft-v1-harness"];
-    const REAL_KEYS = ["gsc-kr-state-v1", "gsc-kr-draft-v1"];
+    const KEYS = ["kk-state-v1-harness", "kk-draft-v1-harness"];
+    const REAL_KEYS = ["kk-state-v1", "kk-draft-v1"];
     const REAL_BEFORE = REAL_KEYS.map((k) => localStorage.getItem(k));
 
     async function refreshAssets() {
@@ -260,7 +260,7 @@
         && PLAYERS.every((p) => ["Banana", "Lychee", "Kiwifruit"].every((w) => phoneText(p.pid).indexOf(w) < 0)));
       const before = JSON.stringify(core().dive.answers);
       PW("p2").KrPhone.me.send({ t: "puffer", text: "Zqwrong" });
-      PW("p2").KrPhone.me.send({ t: "review", group: "x", tier: "krillion" });
+      PW("p2").KrPhone.me.send({ t: "review", group: "x", tier: "abyss" });
       PW("p2").KrPhone.me.send({ t: "answer", text: "x".repeat(5000) });
       await sleep(150);
       check("KR-I1 frames for the wrong screen, unknown frames and oversize frames are ignored",
@@ -270,9 +270,9 @@
       await waitFor(() => core().phase === "reveal", "the round closing when everyone has answered");
       check("KR-I1 the round closes once everyone has answered; matched answers already carry their tier",
         HW().KrCore.groups(core()).filter((g) => g.onList).map((g) => `${g.label}:${g.tier}`).sort().join(",")
-          === "Apple:prawn,Kiwi:rare,Lychee:deepcut,Rambutan:krillion",
+          === "Apple:shallows,Kiwi:twilight,Lychee:midnight,Rambutan:abyss",
         HW().KrCore.groups(core()).map((g) => `${g.label}:${g.tier}`).join(","));
-      check("KR-I1 the alias “litchi” matched Lychee (Deep Cut)",
+      check("KR-I1 the alias “litchi” matched Lychee (Midnight)",
         HW().KrCore.groups(core()).find((g) => g.pids.indexOf("p4") >= 0).label === "Lychee");
     }
 
@@ -285,7 +285,7 @@
         && HD().querySelectorAll("#kr-groups .kr-group.is-shown").length === 0, H("btn-reveal").textContent);
       await waitFor(() => view("p5").screen === "wait", "Ed waiting");
       check("KR-I1 Ed's phone says the judge is reviewing", /judge is reviewing/.test(phoneText("p5")));
-      queue()[0].querySelector('[data-tier="rare"]').click();
+      queue()[0].querySelector('[data-tier="twilight"]').click();
       const remember = HD().querySelector("#kr-queue .kr-remember");
       check("KR-I1 a ruling offers “Add to this question”", remember && remember.textContent === "Add to this question");
       remember.click();
@@ -293,18 +293,18 @@
       check("KR-I1 K-5 the remembered answer stays in the queue as “On this question now” until the reveal",
         kept && kept.classList.contains("is-remembered")
         && kept.querySelector(".kr-remember").textContent === "On this question now"
-        && kept.querySelector('[data-tier="rare"]').getAttribute("aria-pressed") === "true"
+        && kept.querySelector('[data-tier="twilight"]').getAttribute("aria-pressed") === "true"
         && H("btn-reveal").disabled === false, kept && kept.textContent);
       check("KR-I1 Add to this question remembers the answer and its tier in the session content",
         core().learned.length === 1 && HW().KrApp.state().game.prompts[0].answers.some((a) => a.text === "Zqdurian"
-          && a.tier === "rare"), JSON.stringify(core().learned));
+          && a.tier === "twilight"), JSON.stringify(core().learned));
       const shown = () => [...HD().querySelectorAll("#kr-groups .kr-group.is-shown .kr-group-answer")].map((n) => n.textContent);
       const seen = [];
       while (core().phase === "reveal" && seen.length < 10) {
         click("btn-reveal");
         seen.push(shown().join("|"));
       }
-      check("KR-I1 the reveal walks Prawn → One in a Krillion; the rarest lands last",
+      check("KR-I1 the reveal walks Shallows → Abyss; the rarest lands last",
         seen[3] === "Apple|Kiwi|Zqdurian|Lychee|Rambutan".split("|").slice(0, 4).join("|")
         && seen[4] === "Apple|Kiwi|Zqdurian|Lychee|Rambutan", seen.slice(0, 5).join(" / "));
       check("KR-I1 points by tier: 10 · 60 · 100 · 85 · 60, banked on the depth board",
@@ -312,10 +312,10 @@
         core().players.map((p) => p.score).join(","));
       await waitFor(() => view("p3").screen === "reveal", "the phones' reveal");
       check("KR-I1 each phone shows its own tier, points and depth",
-        view("p3").tier === "One in a Krillion" && view("p3").points === 100 && view("p3").depth === 1000
-        && view("p5").tier === "Rare" && /1,000 m deep/.test(phoneText("p3")), JSON.stringify(view("p3")));
+        view("p3").tier === "Abyss" && view("p3").points === 100 && view("p3").depth === 1000
+        && view("p5").tier === "Twilight" && /1,000 m deep/.test(phoneText("p3")), JSON.stringify(view("p3")));
       check("KR-I1 the depth board shows the per-tier tally and every marker",
-        /Prawn 1 · Schooler 0 · Rare 2 · Deep Cut 1 · One in a Krillion 1 · Missed 0/.test(H("kr-depth-tally").textContent)
+        /Shallows 1 · Reef 0 · Twilight 2 · Midnight 1 · Abyss 1 · Missed 0/.test(H("kr-depth-tally").textContent)
         && HD().querySelectorAll("#kr-depth-reef .kr-lane").length === 5, H("kr-depth-tally").textContent);
       check("KR-I6 the depth board fits 1280×720 with no vertical scroll",
         HD().documentElement.scrollHeight <= HD().documentElement.clientHeight + 1,
@@ -455,7 +455,7 @@
       const fruit = HW().KrEditor.draft().prompts.findIndex((p) => p.text === "Name a fruit");
       click("btn-editor-import");
       check("KR-I5 Import judged answers folds the judge's “Zqdurian” into Name a fruit",
-        fruit >= 0 && HW().KrEditor.draft().prompts[fruit].answers.some((a) => a.text === "Zqdurian" && a.tier === "rare")
+        fruit >= 0 && HW().KrEditor.draft().prompts[fruit].answers.some((a) => a.text === "Zqdurian" && a.tier === "twilight")
         && /Imported 1 judged answer/.test(H("kr-editor-warn").textContent), H("kr-editor-warn").textContent);
       HW().KrEditor.select(fruit);
       check("KR-I5 the imported answer is a row in that prompt's table",
@@ -474,7 +474,7 @@
       HW().HTMLAnchorElement.prototype.click = realClick;
       const manifest = H("kr-editor-manifest").textContent;
       check("KR-I5 X-3 Download for the library saves harness-night.json and prints the manifest entry",
-        downloaded === "harness-night.json" && manifest.indexOf("games/krillion/sets/harness-night.json") >= 0
+        downloaded === "harness-night.json" && manifest.indexOf("sets/harness-night.json") >= 0
         && manifest.indexOf('"file": "harness-night.json"') >= 0 && manifest.indexOf('"prompts": 100') >= 0,
         `${downloaded} · ${manifest.split("\n")[0]}`);
       click("btn-editor-use");
@@ -537,7 +537,7 @@
       const emoji = /\p{Extended_Pictographic}/u;
       check("KR-I6 UI-10 no emoji anywhere in the host screen's text", !emoji.test(hostText()));
       check("KR-I6 V-store the run is namespaced and leaves the real save untouched",
-        HW().KrApp.STORAGE_KEY === "gsc-kr-state-v1-harness" && HW().KrEditor.DRAFT_KEY === "gsc-kr-draft-v1-harness"
+        HW().KrApp.STORAGE_KEY === "kk-state-v1-harness" && HW().KrEditor.DRAFT_KEY === "kk-draft-v1-harness"
         && REAL_KEYS.every((k, i) => localStorage.getItem(k) === REAL_BEFORE[i]));
     }
 
