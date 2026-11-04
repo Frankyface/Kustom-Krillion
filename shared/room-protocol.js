@@ -31,8 +31,8 @@
   const NAME_MAX = 24; // display cap
   const NAME_FIELD_MAX = 240; // structural cap (~10×) at the validation boundary
   const GAME_ID_MAX = 40;
-  const MAX_PLAYERS_CAP = 16;
-  const DEFAULT_MAX_PLAYERS = 12;
+  const MAX_PLAYERS_CAP = 40;
+  const DEFAULT_MAX_PLAYERS = 40;
   const PAYLOAD_MAX_BYTES = 32768; // 32 KB serialised game payload
 
   // C0 controls + DEL + C1 controls, built from escapes so this file stays

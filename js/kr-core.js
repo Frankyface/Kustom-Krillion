@@ -42,7 +42,7 @@
     "setup", "intro", "prompt", "reveal", "depth", "pufferReady", "puffer", "popped", "result",
   ]);
   const MIN_PLAYERS = 2;
-  const MAX_PLAYERS = 16;
+  const MAX_PLAYERS = 40;
   const MAX_HISTORY = 40;
   const MAX_LEARNED = 300;
 

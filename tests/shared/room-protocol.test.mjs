@@ -357,7 +357,7 @@ test("L-U5 setGame, lock and setMax", () => {
   assert.equal(RP.lobbyReduce(s0, { type: "setMax", n: 99 }).state.maxPlayers, RP.MAX_PLAYERS_CAP);
   assert.equal(RP.lobbyReduce(s0, { type: "setMax", n: 0 }).state.maxPlayers, 1);
   assert.deepEqual(RP.lobbyReduce(s0, { type: "setMax", n: "many" }).effects, []);
-  assert.equal(s0.maxPlayers, 12, "the default lobby holds 12");
+  assert.equal(s0.maxPlayers, 40, "the default lobby holds 40");
 });
 
 test("L-U5 lobbySnapshot is the wire payload, in join order", () => {
