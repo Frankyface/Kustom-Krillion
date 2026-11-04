@@ -427,10 +427,10 @@ test("KR-U8 createState refuses bad line-ups", () => {
   assert.throws(() => K.createState(fixtureGame(), { players: [{ pid: "a", name: "A" }] }), /at least 2/);
   assert.throws(() => K.createState(fixtureGame(), { players: [{ pid: "a", name: "A" }, { pid: "a", name: "B" }] }),
     /twice/);
-  const many = Array.from({ length: 17 }, (_, i) => ({ pid: `x${i}`, name: `X${i}` }));
+  const many = Array.from({ length: 41 }, (_, i) => ({ pid: `x${i}`, name: `X${i}` }));
   const forty = Array.from({ length: 40 }, (_, i) => ({ pid: `y${i}`, name: `Y${i}` }));
   assert.equal(K.createState(fixtureGame(), { players: forty }).players.length, 40);
-  assert.throws(() => K.createState(fixtureGame(), { players: many }), /16/);
+  assert.throws(() => K.createState(fixtureGame(), { players: many }), /40/);
 });
 
 /* ============ KR-U9 phone messages ============ */
