@@ -11,3 +11,4 @@
 8. 2026-11-04 — A1 + A2 integrated (5d1feb3): unit 149/149, harness 65/65 at 1440x900 (narrow pane gave false failures), stress 35/35 with 40 phones. Design package B (opus) dispatched for F008/F009.
 9. 2026-11-04 — Design package B integrated (e8e9a75): unit 156/156; harness/stress pass per implementer. PM found ruler label overlap at 1280x720. Round-2 independent review dispatched.
 10. 2026-11-04 — Round-2 review @ e8e9a75: changes required (B1 reveal cards overflow rows; N1 ruler overlap + short reef; N2 popped seat label; N3 icon size vs phone cap; N4 mid-game icon message; S1 result list; S2 stress N). Routed to design implementer as B-P2.
+11. 2026-11-04 — B-P2 fixes (78c517b) approved on re-review. PM fixed stress N=4 assertion; harness 66/66, stress 36/36 (N=4, 40). Round 2 accepted; pushing.

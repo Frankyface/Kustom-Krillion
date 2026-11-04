@@ -470,10 +470,12 @@
       const s3 = view("p3").standing;
       // "Others tied" needs a fourth seat; with three phones there is nobody between p2 and p3.
       const other = phoneFrames.has("p9") ? "p9" : (phoneFrames.has("p4") ? "p4" : null);
-      const s9 = other ? view(other).standing : { place: `=3rd of ${N}` };
+      // With exactly one other seat (N = 4) it ranks alone: "3rd", not "=3rd".
+      const othersPlace = N - 3 >= 2 ? `=3rd of ${N}` : `3rd of ${N}`;
+      const s9 = other ? view(other).standing : { place: othersPlace };
       check("Puffer standing: hearts then meter (p1 1st, p2 2nd, others tied, popped p3 last)",
         s1.place === `1st of ${N}` && s1.meter === 4 && s2.place === `2nd of ${N}`
-        && s9.place === `=3rd of ${N}` && s3.place === `${ordinal(N)} of ${N}` && s3.hearts === 1,
+        && s9.place === othersPlace && s3.place === `${ordinal(N)} of ${N}` && s3.hearts === 1,
         `${s1.place} ${s2.place} ${s9.place} ${s3.place}`);
       check("phone shows hearts, meter and how many are still floating",
         /2 hearts · meter 4 of 10/.test(phoneText("p1")) && new RegExp(`${N} of ${N} still floating`).test(phoneText("p1")), phoneText("p1").slice(0, 200));

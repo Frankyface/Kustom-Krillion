@@ -18,8 +18,10 @@ any lead figure, so they are not double-counted.
 | R6 | subagent, sonnet (resumed, same counter as R2/R4) | implementer F002-P1–P3 | task notification, cumulative 250,889 | F002 | unknown | unknown | 250,889 | complete for that agent | reconciled |
 | R7 | subagent, sonnet | implementer A1 (F005, F006, F004 stress) | task notification (subagent_tokens) | UNALLOCATED (F004+F005+F006, not split) | unknown | unknown | 189,104 | complete for that agent | reconciled |
 | R8 | subagent, sonnet | implementer A2 (F007, F004 layouts) | task notification (subagent_tokens) | UNALLOCATED (F004+F007, not split) | unknown | unknown | 226,658 | complete for that agent | reconciled |
-| R9 | subagent, opus | design implementer B (F008, F009) | task notification (subagent_tokens) | UNALLOCATED (F008+F009, not split) | unknown | unknown | 291,445 | complete for that agent | reconciled |
-| R10 | subagent, opus | reviewer round 2 @ e8e9a75 | task notification (subagent_tokens) | UNALLOCATED (F004–F009 review) | unknown | unknown | 198,959 | complete for that agent | reconciled |
+| R9 | subagent, opus | design implementer B (F008, F009) | task notification (subagent_tokens) | UNALLOCATED (F008+F009, not split) | unknown | unknown | 291,445 | complete for that agent | superseded by R11 |
+| R10 | subagent, opus | reviewer round 2 @ e8e9a75 | task notification (subagent_tokens) | UNALLOCATED (F004–F009 review) | unknown | unknown | 198,959 | complete for that agent | superseded by R12 |
+| R11 | subagent, opus (resumed, same counter as R9) | design implementer B + B-P2 | task notification, cumulative 366,084 | UNALLOCATED (F008+F009) | unknown | unknown | 366,084 | complete for that agent | reconciled; supersedes R9 |
+| R12 | subagent, opus (resumed, same counter as R10) | reviewer round 2 + re-review @ 78c517b | task notification, cumulative 220,116 | UNALLOCATED (F004–F009 review) | unknown | unknown | 220,116 | complete for that agent | reconciled; supersedes R10 |
 
 ## Summaries (rebuilt from records)
 | Scope | Recorded total | Coverage |
@@ -28,5 +30,5 @@ any lead figure, so they are not double-counted.
 | F002 | 250,889 (R6) | partial (lead share unknown; review in UNALLOCATED) |
 | F003 | 0 recorded | lead share unknown |
 | SHARED | 0 recorded | lead unknown |
-| UNALLOCATED | 1,070,667 (R5 + R7–R10) | complete for those agents; round-2 features not split |
-| **Project** | **1,321,556 recorded** + unknown lead usage | partial |
+| UNALLOCATED | 1,166,463 (R5, R7, R8, R11, R12) | complete for those agents; round-2 features not split |
+| **Project** | **1,417,352 recorded** + unknown lead usage | partial |

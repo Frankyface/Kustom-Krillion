@@ -68,6 +68,17 @@ one floating wins. An optional round cap ends the game on hearts.
   over** clears the game but keeps the players, prompts and settings.
 - **Undo** steps back one decision (clock time included). Keys: `C` close the answers, `R` reveal,
   `U` undo.
+- **Up to 40 players.** Above 12 the screens switch to compact layouts (depth bars instead of
+  lanes, a seat grid for Puffer Party, dense answer cards), and long lists scroll inside their
+  panels so a 1280×720 projector never scrolls.
+- **Host from a phone or tablet.** Every host screen works in portrait from 320 px wide: the
+  toolbar becomes icons, columns stack and the main actions sit in a bar at the bottom.
+- **Diver icon.** Each player is a little krill that floats down to their depth when answers are
+  revealed. Under **Name & tiers → Diver icon** you can upload your own picture (PNG, JPEG, WebP or
+  GIF; it is shrunk to 96 px and kept small enough to send to every phone) or go back to the
+  krill. It is saved with your setup, exported with **Download JSON**, and a change made mid-game
+  applies from the next game. Motion is switched off for anyone who asks their device for reduced
+  motion.
 - The saved game is scoped to its room: when a new room opens, phone players from a saved game
   become host-typed seats so a new phone can't inherit someone's depth.
 
@@ -130,9 +141,13 @@ settings and on every answer). Files with their own tier ids are left alone.
 ## Phones
 
 Phones show the game's name, the prompt, a field and a countdown; "Sent ✓ — you can change it" until the clock ends;
-then their own tier, points and depth. In Puffer Party the holder gets the field and the shrinking
-clock, everyone else sees whose turn it is and the used answers. A phone never receives another
-player's answer before it is revealed, and never the rated list.
+then their own tier, points and depth. Between rounds each phone shows its **place** ("3rd of 40",
+ties as "=3rd"), total depth and points, how far behind the next player it is, the top three, and
+its diver sinking through the ocean zones. Once a prompt is fully revealed, **See the rated list**
+opens that prompt's whole list, grouped by tier, with the player's own answer highlighted; the page
+scrolls on any phone. In Puffer Party the holder gets the field and the shrinking clock, everyone
+else sees whose turn it is and the used answers; between rounds phones show hearts, meter and
+standing. A phone never receives another player's answer, or the rated list, before the reveal.
 
 ## Layout and tests
 
@@ -148,14 +163,19 @@ js/kr-party.js        Puffer Party rendering
 js/kr-clock.js        reads the core's deadline; reports expiry
 js/kr-room.js         GSC.host glue        js/kr-phone.js     phone controller
 js/kr-editor.js       editor               js/kr-sound.js     WebAudio cues
+js/kr-diver.js        the krill, sinking, reef zones, icon upload   css/kr-diver.css
+js/kr-flavour.js      ocean zones, ruler fitting, reaction lines (pure)
 shared/               room transport (room-*.js), GSC SDK (bridge.js), library, icons, theme
 tests/kr-core.test.mjs   node --test (KR-U1 … KR-U10)   tests/kr-brand.test.mjs (name, tiers, legacy ids)
+tests/kr-phone-view.test.mjs  place/standing/rated-list views   tests/kr-diver.test.mjs  icon + flavour
 tests/harness.html       loopback harness with five phones (KR-I1 … KR-I6)
+tests/stress.html        40-phone stress run (?phones=N, N ≥ 3)
 tests/shared/            tests for the shared room, bridge, library and icon code
 ```
 
 `node --test "tests/**/*.test.mjs"` (Node 21+) runs the unit tests. Serve the repo root
-(`python -m http.server 8620`) and open `/tests/harness.html` for the loopback suite.
+(`python -m http.server 8620`) and open `/tests/harness.html` and `/tests/stress.html` in a window
+at least 1300 px wide (they check the 1280×720 projector layout).
 
 ## Known issues
 
@@ -163,5 +183,4 @@ tests/shared/            tests for the shared room, bridge, library and icon cod
   which shares the github.io origin).
 - Undoing an **Add to this question** removes it from the game in progress, but the answer stays in
   the session's prompt file (and the editor's import list) until you reload the prompts.
-- In the editor at narrow window widths (about 800 px), the tier picker in the answer table is
-  cut short ("Shallov…"). It is still usable; widen the window to read it in full.
+- GIF uploads become a still picture.
