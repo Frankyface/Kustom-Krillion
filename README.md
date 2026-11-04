@@ -7,8 +7,19 @@ The deeper your answers, the deeper you dive. The game's name and the tier names
 change — see [Name and tiers](#name-and-tiers).
 
 Inspired by **Krillion** ([krillion.io](https://krillion.io)), which grades rarity against a global
-database of real players' answers. This is an original adaptation for Game Show Central and is not
-affiliated with Krillion.
+database of real players' answers. This is an original, standalone adaptation (first built for
+[Game Show Central](https://github.com/Frankyface/Game-Show-Central)) and is not affiliated with
+Krillion.
+
+## Play
+
+- **Online:** https://frankyface.github.io/Kustom-Krillion/ — open it on the screen you share,
+  press **Open room (phones)**, and players open the link or type the room code.
+- **Locally:** this is a static site with no build step. From the repo root run
+  `python -m http.server 8620` and open http://localhost:8620/. Phones need to reach the same
+  address (use your computer's LAN IP), or play host-only by typing answers.
+- Rooms use PeerJS's free public broker (loaded from cdnjs only when a room opens), so phones and
+  host need an internet connection for rooms; host-only play works offline.
 
 ## How rarity works here
 
@@ -50,8 +61,7 @@ one floating wins. An optional round cap ends the game on hearts.
 
 ## Hosting
 
-- **In the hub:** pick the game in the lobby. Phones that joined the room become players.
-- **On its own:** open the site root and press **Open room (phones)**; players open the link
+- Open the site and press **Open room (phones)**; players open the link
   shown. Or play with no phones at all — add players by name and type their answers (tick **Hide
   what I type** while screen-sharing).
 - **Game lobby** (toolbar) returns to setup: **Keep this game** shows a **Resume** button; **Start
@@ -138,14 +148,20 @@ js/kr-party.js        Puffer Party rendering
 js/kr-clock.js        reads the core's deadline; reports expiry
 js/kr-room.js         GSC.host glue        js/kr-phone.js     phone controller
 js/kr-editor.js       editor               js/kr-sound.js     WebAudio cues
+shared/               room transport (room-*.js), GSC SDK (bridge.js), library, icons, theme
 tests/kr-core.test.mjs   node --test (KR-U1 … KR-U10)   tests/kr-brand.test.mjs (name, tiers, legacy ids)
 tests/harness.html       loopback harness with five phones (KR-I1 … KR-I6)
+tests/shared/            tests for the shared room, bridge, library and icon code
 ```
 
-`node --test "tests/**/*.test.mjs"` runs the unit tests. Serve the repo root
+`node --test "tests/**/*.test.mjs"` (Node 21+) runs the unit tests. Serve the repo root
 (`python -m http.server 8620`) and open `/tests/harness.html` for the loopback suite.
 
 ## Known issues
 
+- Saves live in this browser's localStorage under `kk-*` keys (separate from Game Show Central's,
+  which shares the github.io origin).
 - Undoing an **Add to this question** removes it from the game in progress, but the answer stays in
   the session's prompt file (and the editor's import list) until you reload the prompts.
+- In the editor at narrow window widths (about 800 px), the tier picker in the answer table is
+  cut short ("Shallov…"). It is still usable; widen the window to read it in full.

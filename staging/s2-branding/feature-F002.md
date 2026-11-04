@@ -2,7 +2,7 @@
 
 - **ID:** F002 · **Owner:** Sonnet implementer (package F002-P1), PM integrates
 - **Previous:** staging/s1-port/feature-F001.md · **Next:** staging/s3-delivery/feature-F003.md · **Depends on:** staging/s1-port/feature-F001.md
-- **Status:** in progress
+- **Status:** verified done (PM accepted 2026-11-04 at 1350509)
 - **Spec:** ready, rev 1, PM decision 2026-11-04
 
 ## Goal and boundaries
@@ -38,7 +38,15 @@
   dropdown truncates ("Shallov").
 
 ## Review
-State: pending.
+State: approved (independent: opus subagent, fresh context, authored no code).
+Review log:
+1. 9c3ec1c — changes required: B1 editor naming ignored after setup edits;
+   N1 stale name error; N2 setup names not exported; N3 hub path in library
+   message; suggestions S1–S3. Harness 65/65, unit 138/138.
+2. fe8cdcc — approved; new non-blocking R1 (stale save note), R2 (note
+   wording with different tier ids), suggestion S-a. Unit 141/141.
+3. 1350509 — approved, no new findings. Unit 141/141.
+PM acceptance: 2026-11-04, checks passing, blocking findings resolved.
 
 ## Token usage
 Recorded when the implementer reports.
