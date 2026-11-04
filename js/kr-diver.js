@@ -15,8 +15,12 @@
 
 const KrDiver = (function () {
   const SVG = "http://www.w3.org/2000/svg";
-  const ICON_SIDE = 96;              // the uploaded picture is shrunk to fit 96 × 96
-  const ICON_BYTES = 40 * 1024;      // …and must then be 40 KB or less
+  const ICON_SIDE = 96;              // the uploaded picture is shrunk to fit 96 × 96 (or smaller, below)
+  // At most 22 KB and 30 000 characters encoded, so the picture always fits the 32 KB phone message too.
+  const ICON_BYTES = 22 * 1024;
+  const ICON_CHARS = 30000;
+  const SIDES = [ICON_SIDE, 80, 64, 48, 40, 32];
+  const QUALITIES = [0.9, 0.8, 0.7, 0.6, 0.5];
   const FILE_BYTES = 8 * 1024 * 1024;
   const TYPES = /^image\/(png|jpeg|webp|gif)$/;
   const SINK_MS = 1500;
@@ -133,22 +137,43 @@ const KrDiver = (function () {
     });
   }
 
-  /** The vertical ruler: 0 m, the zone milestones that fit, and the bottom of the scale. */
+  const rulerWatch = typeof window.ResizeObserver === "function"
+    ? new window.ResizeObserver((entries) => entries.forEach((e) => layoutRuler(e.target))) : null;
+
+  /**
+   * The vertical ruler: 0 m, the zone milestones that fit, and the bottom of the scale.
+   * Which labels fit depends on the ruler's real height, so it is laid out again
+   * whenever that height changes (a ResizeObserver), not only on a render.
+   */
   function paintRuler(axis, scale) {
-    const ruler = el("div", "kr-reef-ruler");
-    axis.replaceChildren(ruler);
-    const tall = ruler.clientHeight || 100;
+    let ruler = axis.querySelector(".kr-reef-ruler");
+    if (!ruler) {
+      ruler = el("div", "kr-reef-ruler");
+      axis.replaceChildren(ruler);
+      if (rulerWatch) rulerWatch.observe(ruler);
+    }
+    ruler.krScale = scale;
+    layoutRuler(ruler);
+  }
+
+  function layoutRuler(ruler) {
+    const scale = ruler.krScale;
+    const tall = ruler.clientHeight;
+    if (!scale || !ruler.isConnected || !tall) return;
+    const sig = `${scale}@${tall}`;
+    if (ruler.dataset.sig === sig) return;
+    ruler.dataset.sig = sig;
     const marks = [{ at: 0, label: "0 m" }].concat(window.KrFlavour.milestones(scale))
       .concat([{ at: 100, label: `${window.KrView.numberText(scale)} m`, end: true }]);
-    let last = -Infinity;
-    marks.forEach((m, i) => {
-      const px = (m.at / 100) * tall;
-      const roomBelow = m.end || ((100 - m.at) / 100) * tall >= 16;
-      if (i > 0 && (px - last < 16 || !roomBelow)) return;
-      const mark = el("span", `kr-ruler-mark${m.end ? " is-end" : ""}${m.metres ? " is-zone" : ""}`, m.label);
+    const probe = el("span", "kr-ruler-mark", "0 m");
+    ruler.replaceChildren(probe);
+    const labelH = Math.max(probe.offsetHeight, 17);
+    ruler.replaceChildren();
+    window.KrFlavour.rulerFit(marks, tall, labelH, 2).forEach((m) => {
+      const kind = m.at === 0 ? " is-start" : (m.end ? " is-end" : "");
+      const mark = el("span", `kr-ruler-mark${kind}${m.metres ? " is-zone" : ""}`, m.label);
       mark.style.top = `${m.at}%`;
       ruler.appendChild(mark);
-      last = px;
     });
     // The marks are positioned absolutely, so the ruler takes the width of the widest one itself.
     ruler.style.width = `${Math.ceil(Math.max(0, ...[...ruler.children].map((n) => n.offsetWidth)))}px`;
@@ -198,17 +223,35 @@ const KrDiver = (function () {
     });
   }
 
-  /** The smallest usable encoding of the canvas: PNG, or WebP where the browser can write it. */
+  const bytesOf = (dataUrl) => Math.floor(((dataUrl.length - dataUrl.indexOf(",") - 1) * 3) / 4);
+  const fitsLimits = (u) => bytesOf(u) <= ICON_BYTES && u.length <= ICON_CHARS;
+
+  /**
+   * The first encoding of the canvas that fits: lossless PNG, then WebP at falling quality
+   * (only where the browser can write WebP; Safari hands back PNG instead). "" when none fits.
+   */
   function encode(canvas) {
-    const tries = [canvas.toDataURL("image/png"), canvas.toDataURL("image/webp", 0.9)]
-      .filter((u) => /^data:image\/(png|webp);base64,/.test(u));   // a browser without WebP hands back PNG
-    tries.sort((a, b) => a.length - b.length);
-    return tries[0] || "";
+    const png = canvas.toDataURL("image/png");
+    if (/^data:image\/png;base64,/.test(png) && fitsLimits(png)) return png;
+    for (const q of QUALITIES) {
+      const webp = canvas.toDataURL("image/webp", q);
+      if (!/^data:image\/webp;base64,/.test(webp)) return "";
+      if (fitsLimits(webp)) return webp;
+    }
+    return "";
   }
 
-  const bytesOf = (dataUrl) => Math.floor(((dataUrl.length - dataUrl.indexOf(",") - 1) * 3) / 4);
+  /** Draw the picture to fit `side` × `side` and encode it; "" when it does not fit the limits. */
+  function shrinkTo(img, side) {
+    const k = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * k));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * k));
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    return encode(canvas);
+  }
 
-  /** Read a picked file into a ≤ 96 × 96 data URL of ≤ 40 KB, or throw a plain-English Error. */
+  /** Read a picked file into a ≤ 96 × 96 data URL of ≤ 22 KB (trying smaller sizes first), or throw a plain-English Error. */
   async function readIcon(file) {
     if (!file) throw new Error("No picture was chosen.");
     if (!TYPES.test(file.type)) throw new Error("That file isn’t a PNG, JPEG, WebP or GIF picture.");
@@ -222,19 +265,13 @@ const KrDiver = (function () {
     } finally {
       URL.revokeObjectURL(url);
     }
-    const w = img.naturalWidth;
-    const h = img.naturalHeight;
-    if (!w || !h) throw new Error("That picture has no size, so it can’t be used.");
-    const k = Math.min(1, ICON_SIDE / Math.max(w, h));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(w * k));
-    canvas.height = Math.max(1, Math.round(h * k));
-    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-    const out = encode(canvas);
-    if (!out) throw new Error("That picture couldn’t be converted. Try a PNG or a JPEG.");
-    if (bytesOf(out) > ICON_BYTES) {
-      throw new Error("Even shrunk to 96 × 96 that picture is over 40 KB. Try a simpler one with fewer colours.");
+    if (!img.naturalWidth || !img.naturalHeight) throw new Error("That picture has no size, so it can’t be used.");
+    let out = "";
+    for (const side of SIDES) {
+      out = shrinkTo(img, side);
+      if (out) break;
     }
+    if (!out) throw new Error("Even shrunk right down, that picture is over 22 KB. Try a simpler one with fewer colours.");
     if (!window.KrCore.cleanIcon(out)) throw new Error("That picture couldn’t be converted. Try a PNG or a JPEG.");
     return out;
   }
@@ -253,8 +290,14 @@ const KrDiver = (function () {
     iconMessage("Shrinking your picture…", false);
     readIcon(file).then((icon) => {
       window.KrApp.setIcon(icon);
-      iconMessage(`Your picture dives for everyone (${Math.ceil(bytesOf(icon) / 1024)} KB).`, false);
+      iconMessage(`Your picture dives for everyone${laterNote()} (${Math.ceil(bytesOf(icon) / 1024)} KB).`, false);
     }).catch((err) => iconMessage(err.message, true));
+  }
+
+  /** A game in progress (or kept for Resume) keeps the icon it started with. */
+  function laterNote() {
+    const s = window.KrApp.state();
+    return s.core || s.resumable ? " from the next game" : "";
   }
 
   function wireSetup() {
@@ -265,7 +308,7 @@ const KrDiver = (function () {
     $("btn-icon-upload").addEventListener("click", () => input.click());
     $("btn-icon-default").addEventListener("click", () => {
       window.KrApp.setIcon("");
-      iconMessage("The krill is back on duty.", false);
+      iconMessage(`The krill is back on duty${laterNote()}.`, false);
     });
   }
 
@@ -288,7 +331,7 @@ const KrDiver = (function () {
 
   return {
     make, krill, sink, bubbles, flourish, motionOK, paintZones, paintRuler, rulerText, gauge, paintSlot,
-    readIcon, wireSetup, paintSetup, ICON_SIDE, ICON_BYTES,
+    readIcon, wireSetup, paintSetup, ICON_SIDE, ICON_BYTES, ICON_CHARS,
   };
 })();
 

@@ -109,3 +109,28 @@ test("FL-4 lines: moods by tier position, a seed picks the same line every time"
   const all = Object.values(F.REVEAL_LINES).flat().concat(Object.values(F.BOARD_LINES).flat());
   assert.ok(all.every((line) => !emoji.test(line) && line.length <= 70), "short lines, no emoji");
 });
+
+test("FL-5 rulerFit keeps labels apart, honouring how each one hangs off its line", () => {
+  const marks = [{ at: 0, label: "0 m" }, { at: 20, label: "200 m" }, { at: 100, label: "1,000 m" }];
+  const overlaps = (kept, tall, h) => {
+    const box = (m) => {
+      const i = marks.indexOf(m);
+      const px = (m.at / 100) * tall;
+      return i === 0 ? [px, px + h] : (i === marks.length - 1 ? [px - h, px] : [px - h / 2, px + h / 2]);
+    };
+    return kept.some((a, i) => kept.some((b, j) => i < j && box(a)[1] > box(b)[0] && box(b)[1] > box(a)[0]));
+  };
+  // 100 px: "200 m" centred at 20 px would overlap "0 m" hanging from 0 to 18 px, so it is dropped.
+  assert.deepEqual(F.rulerFit(marks, 100, 18).map((m) => m.label), ["0 m", "1,000 m"]);
+  // 300 px: it sits at 51–69 px, clear of both ends.
+  assert.deepEqual(F.rulerFit(marks, 300, 18).map((m) => m.label), ["0 m", "200 m", "1,000 m"]);
+  // 30 px: the two ends can't both fit; the bottom of the scale wins.
+  assert.deepEqual(F.rulerFit(marks, 30, 18).map((m) => m.label), ["1,000 m"]);
+  for (let tall = 10; tall <= 600; tall += 7) {
+    assert.equal(overlaps(F.rulerFit(marks, tall, 18), tall, 18), false, `overlap at ${tall} px`);
+  }
+  const deep = [{ at: 0 }, ...F.milestones(7000), { at: 100 }];
+  assert.ok(F.rulerFit(deep, 46, 18).length <= 2, "a 46 px ruler holds two labels at most");
+  assert.deepEqual(F.rulerFit([], 100, 18), []);
+  assert.deepEqual(F.rulerFit(marks, 0, 18), []);
+});

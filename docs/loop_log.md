@@ -9,3 +9,5 @@
 6. 2026-11-04 — F003: pushed main, enabled Pages, live page 200 and live room join verified. Project acceptance met.
 7. 2026-11-04 — Round 2 requested (6 items). PM raised caps to 40 (5150f49, 1c9e719). A1 (phones + stress) and A2 (mobile + 40 layouts) dispatched in parallel.
 8. 2026-11-04 — A1 + A2 integrated (5d1feb3): unit 149/149, harness 65/65 at 1440x900 (narrow pane gave false failures), stress 35/35 with 40 phones. Design package B (opus) dispatched for F008/F009.
+9. 2026-11-04 — Design package B integrated (e8e9a75): unit 156/156; harness/stress pass per implementer. PM found ruler label overlap at 1280x720. Round-2 independent review dispatched.
+10. 2026-11-04 — Round-2 review @ e8e9a75: changes required (B1 reveal cards overflow rows; N1 ruler overlap + short reef; N2 popped seat label; N3 icon size vs phone cap; N4 mid-game icon message; S1 result list; S2 stress N). Routed to design implementer as B-P2.

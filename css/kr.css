@@ -250,12 +250,16 @@ body {
 
 .kr-groups {
   flex: 1 1 auto; list-style: none; margin: 0; padding: 0; min-height: 0;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(88px, auto);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: max-content;
   gap: 10px; align-content: start; overflow-y: auto; overflow-x: hidden;
 }
-.kr-groups.is-tight { grid-auto-rows: minmax(70px, auto); }
+/* Rows are max-content: in this fixed-height scroll box a minmax() or auto row resolves to its minimum
+   and the tier tag spilled into the next row. The floor sits on the card instead. */
+.kr-group { min-height: 88px; }
+.kr-groups.is-tight .kr-group { min-height: 70px; }
 /* Many answers: more, smaller cards; a card with many names takes more room. */
-.kr-groups.is-dense { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); grid-auto-rows: minmax(58px, auto); gap: 8px; }
+.kr-groups.is-dense { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; }
+.kr-groups.is-dense .kr-group { min-height: 58px; }
 .kr-groups.is-dense .kr-group { padding: 6px 10px; }
 .kr-groups.is-dense .kr-group-answer { font-size: 17px; }
 .kr-groups.is-dense .kr-group-names { font-size: 14px; }
@@ -470,7 +474,8 @@ body {
   .kr-clock { font-size: 88px; }
   .kr-prompt { font-size: clamp(30px, 3.2vw, 44px); }
   .kr-reef-strip { flex-basis: 128px; }
-  .kr-groups { grid-auto-rows: minmax(76px, auto); }
+  .kr-groups .kr-group { min-height: 76px; }
+  .kr-groups.is-dense .kr-group { min-height: 58px; }
 }
 
 /* ============ Projector: the stage is exactly the window; boxes scroll inside themselves ============ */

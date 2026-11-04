@@ -300,10 +300,15 @@
           && a.tier === "twilight"), JSON.stringify(core().learned));
       const shown = () => [...HD().querySelectorAll("#kr-groups .kr-group.is-shown .kr-group-answer")].map((n) => n.textContent);
       const seen = [];
+      let spilled = 0;
       while (core().phase === "reveal" && seen.length < 10) {
         click("btn-reveal");
         seen.push(shown().join("|"));
+        spilled = Math.max(spilled, [...HD().querySelectorAll("#kr-groups .kr-group.is-shown")]
+          .filter((n) => n.scrollHeight > n.clientHeight + 1).length);
       }
+      check("KR-I6 no revealed answer card spills out of its row (tier tag and points inside the card)", spilled === 0,
+        `${spilled} cards overflow`);
       check("KR-I1 the reveal walks Shallows → Abyss; the rarest lands last",
         seen[3] === "Apple|Kiwi|Zqdurian|Lychee|Rambutan".split("|").slice(0, 4).join("|")
         && seen[4] === "Apple|Kiwi|Zqdurian|Lychee|Rambutan", seen.slice(0, 5).join(" / "));

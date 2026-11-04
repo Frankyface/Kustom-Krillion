@@ -65,6 +65,35 @@
     return round1(((i + within) / ZONES.length) * 100);
   }
 
+  /**
+   * Which ruler marks fit a ruler `tall` px high with labels `labelH` px high. Marks are
+   * [{ at (0-100), ... }] in order; the first hangs from its line, the last sits on it and the
+   * rest are centred on theirs. The bottom end is kept first, then the top (if both fit), then
+   * each milestone that overlaps nothing already kept. Returns the kept marks, in order.
+   */
+  function rulerFit(marks, tall, labelH, gap) {
+    const g = Number.isFinite(gap) ? gap : 2;
+    const n = Array.isArray(marks) ? marks.length : 0;
+    if (!n || !(tall > 0) || !(labelH > 0)) return [];
+    const span = (m, i) => {
+      const px = (m.at / 100) * tall;
+      if (i === 0) return [px, px + labelH];
+      if (i === n - 1) return [px - labelH, px];
+      return [px - labelH / 2, px + labelH / 2];
+    };
+    const kept = [];
+    const fits = (box) => box[0] >= -0.5 && box[1] <= tall + 0.5
+      && kept.every((k) => box[1] + g <= k.box[0] || box[0] >= k.box[1] + g);
+    const tryKeep = (i) => {
+      const box = span(marks[i], i);
+      if (fits(box)) kept.push({ i, box });
+    };
+    tryKeep(n - 1);
+    if (n > 1) tryKeep(0);
+    for (let i = 1; i < n - 1; i += 1) tryKeep(i);
+    return kept.sort((a, b) => a.i - b.i).map((k) => marks[k.i]);
+  }
+
   function round1(n) {
     return Math.round(n * 10) / 10;
   }
@@ -131,7 +160,7 @@
   }
 
   return {
-    ZONES, REVEAL_LINES, BOARD_LINES, zoneFor, zoneBands, milestones, gaugePosition,
+    ZONES, REVEAL_LINES, BOARD_LINES, zoneFor, zoneBands, milestones, gaugePosition, rulerFit,
     tierMood, revealLine, boardLine, phoneLine,
   };
 });

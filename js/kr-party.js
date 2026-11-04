@@ -52,7 +52,7 @@ const KrParty = (function () {
       seat.appendChild(heartsRow(s.hearts, max));
       seat.appendChild(el("span", "kr-seat-status", s.out ? "out"
         : `${s.hearts} ${s.hearts === 1 ? "heart" : "hearts"} · ${s.meter}/${need}`));
-      if (s.holder && !s.out) seat.appendChild(el("span", "kr-seat-status", "has the puffer"));
+      if (s.holder && !s.out && c.phase !== "popped") seat.appendChild(el("span", "kr-seat-status", "has the puffer"));
       seatDiver(c, s, seat);
       ring.appendChild(seat);
       if (compact && s.holder && seat.scrollIntoView) seat.scrollIntoView({ block: "nearest" });

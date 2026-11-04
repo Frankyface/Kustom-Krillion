@@ -30,7 +30,8 @@
   <p class="lede">This page is the shell: it loads the real game page as an embedded host plus N embedded phones and speaks the
     bridge protocol itself (no PeerJS). It runs a full Deep Dive prompt (on-list across tiers, aliases, duplicates, off-list answers
     ruled by the judge), a second prompt, then a short Puffer Party round, and checks every phone's screen, place, total,
-    rated list and privacy at each step. Timings and the largest phone payload are recorded below.</p>
+    rated list and privacy at each step. Timings and the largest phone payload are recorded below. N runs from 3 (the Puffer
+    round passes p1 → p2 → p3) to 40; the judge's queue expectation scales with N (all five off-list answers from N = 12).</p>
   <p id="summary">Running…</p>
   <ul id="results"></ul>
   <table id="timings"><thead><tr><th>Action</th><th>Host render ms</th><th>All phones updated ms</th></tr></thead><tbody></tbody></table>
@@ -45,7 +46,7 @@
     "use strict";
 
     const HOLD = new URLSearchParams(location.search).get("hold") === "1";   // stop with the rated list open (for screenshots)
-    const N = Math.max(2, Math.min(40, Number(new URLSearchParams(location.search).get("phones")) || 40));
+    const N = Math.max(3, Math.min(40, Number(new URLSearchParams(location.search).get("phones")) || 40));
     document.getElementById("count").textContent = String(N);
 
     /* ============ Result plumbing ============ */
@@ -240,10 +241,13 @@
     const FRUIT = { apple: 10, banana: 10, mango: 30, kiwi: 60, kiwifruit: 60, lychee: 85, litchi: 85, rambutan: 100,
       zqdurian: 85, zqjackfruit: 60, zqpomelo: 30, zqsalak: 100, zqbogus: 0 };
     const RULINGS = { zqdurian: "midnight", zqjackfruit: "twilight", zqpomelo: "reef", zqsalak: "abyss", zqbogus: "invalid" };
+    // 40 answers. p1 says Apple; the off-list ones come early and interleaved, so every N from 2 has at
+    // least one for the judge, and N >= 12 has all five distinct ones (the queue expectation scales with N).
     const POOL = [].concat(
-      Array(11).fill("Apple"), Array(5).fill("Banana"), Array(4).fill("Mango"), Array(3).fill("Kiwifruit"),
-      Array(3).fill("Kiwi"), Array(3).fill("Lychee"), Array(3).fill("litchi"), Array(2).fill("Rambutan"),
-      ["Zqdurian", "zqdurian", "Zqjackfruit", "Zqpomelo", "Zqsalak", "Zqbogus"]);     // 40 answers
+      ["Apple", "Zqdurian", "Banana", "zqdurian", "Mango", "Zqjackfruit", "Kiwi", "Zqpomelo", "Lychee", "Zqsalak",
+        "Rambutan", "Zqbogus"],
+      Array(10).fill("Apple"), Array(4).fill("Banana"), Array(3).fill("Mango"), Array(3).fill("Kiwifruit"),
+      Array(2).fill("Kiwi"), Array(2).fill("Lychee"), Array(3).fill("litchi"), Array(1).fill("Rambutan"));
     const PROMPT2 = { alpha1: 10, bravo1: 10, delta1: 60, echo1: 85, zulu1: 100 };
     const P2WORDS = ["Alpha1", "Bravo1", "Delta1", "Echo1", "Zulu1"];
 
@@ -281,7 +285,7 @@
       const mid = Object.keys(core().dive.answers).length;
       await waitFor(() => core().phase === "reveal", "the round closing", 30000);
       timings.push({ label: `${N} phones answer (all sent to prompt closed)`, host: performance.now() - t0, phones: null });
-      check("all 40 answers reached the host (round closed by itself)", Object.keys(core().dive.answers).length === N,
+      check(`all ${N} answers reached the host (round closed by itself)`, Object.keys(core().dive.answers).length === N,
         `${mid} after the first wait`);
       await waitFor(() => all((pid) => view(pid).screen === "wait"), "every phone waiting");
       check("every phone is on a waiting screen once the prompt closes", true);
@@ -308,11 +312,12 @@
 
     async function scenarioJudge(said) {
       const rows = () => [...HD().querySelectorAll("#kr-queue .kr-queue-item")];
-      check("the 5 distinct off-list answers wait in the judge's queue (Zqdurian + zqdurian grouped)", rows().length === 5,
-        `${rows().length} rows`);
+      const offList = new Set(Object.values(said).map((a) => a.toLowerCase()).filter((a) => a.indexOf("zq") === 0)).size;
+      check(`the ${offList} distinct off-list answers wait in the judge's queue (Zqdurian + zqdurian grouped)`,
+        rows().length === offList, `${rows().length} rows`);
       await waitFor(() => all((pid) => /judge is reviewing/.test(phoneText(pid))), "judge-reviewing text");
       check("every phone says the judge is reviewing", true);
-      await timed("Judge rules 5 off-list answers", () => {
+      await timed(`Judge rules ${offList} off-list answers`, () => {
         rows().forEach((r) => {
           const key = Object.keys(RULINGS).find((k) => r.textContent.toLowerCase().indexOf(k) >= 0);
           r.querySelector(`[data-tier="${RULINGS[key]}"]`).click();
@@ -321,6 +326,7 @@
       check("reveal unlocks once the queue is ruled", H("btn-reveal").disabled === false);
       let steps = 0;
       let midOk = true;
+      let spilled = 0;
       const t0 = performance.now();
       while (core().phase === "reveal" && steps < 40) {
         click("btn-reveal");
@@ -328,13 +334,21 @@
         if (core().phase === "reveal") {
           await sleep(20);
           if (all((pid) => !view(pid).rated && !/See the rated list/.test(phoneText(pid))) === false) midOk = false;
+          spilled = Math.max(spilled, spilledCards(HD()).length);
         }
       }
       timings.push({ label: `Reveal walk (${steps} clicks incl. bank)`, host: performance.now() - t0, phones: null });
       check("rated list never appears on any phone mid-reveal", midOk);
+      check(`no revealed answer card spills out of its row at ${HW().innerWidth}×${HW().innerHeight}`, spilled === 0,
+        `${spilled} cards overflow`);
       await timed("Depth board", () => {}, (pid) => view(pid).screen === "reveal" && !!view(pid).rated);
       check("host is on the depth board", core().phase === "depth");
       checkScores(said, "prompt 1");
+    }
+
+    /** Revealed answer cards whose content is taller than the card (the tier tag would sit on the next row). */
+    function spilledCards(doc) {
+      return [...doc.querySelectorAll("#kr-groups .kr-group.is-shown")].filter((n) => n.scrollHeight > n.clientHeight + 1);
     }
 
     function checkScores(said, label) {
@@ -454,7 +468,9 @@
       const s1 = view("p1").standing;
       const s2 = view("p2").standing;
       const s3 = view("p3").standing;
-      const s9 = view("p9") ? view("p9").standing : view("p4").standing;
+      // "Others tied" needs a fourth seat; with three phones there is nobody between p2 and p3.
+      const other = phoneFrames.has("p9") ? "p9" : (phoneFrames.has("p4") ? "p4" : null);
+      const s9 = other ? view(other).standing : { place: `=3rd of ${N}` };
       check("Puffer standing: hearts then meter (p1 1st, p2 2nd, others tied, popped p3 last)",
         s1.place === `1st of ${N}` && s1.meter === 4 && s2.place === `2nd of ${N}`
         && s9.place === `=3rd of ${N}` && s3.place === `${ordinal(N)} of ${N}` && s3.hearts === 1,
