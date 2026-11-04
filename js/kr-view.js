@@ -110,33 +110,42 @@ const KrView = (function () {
    * surface to their depth with a marker at the bottom. Seats never reorder,
    * so a reveal reads as markers sinking, not names shuffling.
    */
-  function renderReef(box, rows) {
+  function renderReef(box, rows, icon) {
     const seated = rows.slice().sort((a, b) => a.seat - b.seat);
     const deepest = rows.reduce((m, r) => Math.max(m, r.depth), 0);
     const scale = Math.max(500, Math.ceil(deepest / 250) * 250);
     const compact = isCompact(seated.length);
-    const sig = `${compact ? "c" : "v"}#${seated.map((r) => `${r.pid}:${r.name}`).join("|")}`;
-    if (box.dataset.sig !== sig) {
+    const sig = `${compact ? "c" : "v"}#${(icon || "").length}:${(icon || "").slice(-16)}`
+      + `#${seated.map((r) => `${r.pid}:${r.name}`).join("|")}`;
+    const fresh = box.dataset.sig !== sig;
+    if (fresh) {
       // A new line-up: build the lanes once; later renders move them in place,
-      // which is what lets the markers glide down instead of jumping.
+      // which is what lets the divers glide down instead of jumping.
       box.classList.toggle("is-compact", compact);
-      buildLanes(box, seated);
+      buildLanes(box, seated, icon);
       box.dataset.sig = sig;
     }
     const axis = box.querySelector(".kr-reef-axis");
-    axis.replaceChildren();
-    if (compact) axis.appendChild(el("span", null, `Full bar = ${numberText(scale)} m`));
-    else [0, scale / 2, scale].forEach((m) => axis.appendChild(el("span", null, `${numberText(m)} m`)));
+    if (compact) axis.replaceChildren(el("span", null, window.KrDiver.rulerText(scale)));
+    else window.KrDiver.paintRuler(axis, scale);
     seated.forEach((r) => {
       const lane = box.querySelector(`.kr-lane[data-pid="${CSS.escape(r.pid)}"]`);
-      if (!lane) return;
-      lane.classList.toggle("is-lead", r.rank === 1 && r.depth > 0);
-      lane.querySelector(".kr-lane-line").style.setProperty("--d", String(Math.round((r.depth / scale) * 1000) / 10));
-      lane.querySelector(".kr-lane-marker").textContent = `${numberText(r.depth)} m`;
+      if (lane) moveLane(lane, r, scale, compact, fresh);
     });
   }
 
-  function buildLanes(box, seated) {
+  /** Put one lane's diver at its depth; a diver that went deeper sways down with a few bubbles. */
+  function moveLane(lane, r, scale, compact, fresh) {
+    const before = Number(lane.dataset.depth);
+    lane.dataset.depth = String(r.depth);
+    lane.classList.toggle("is-lead", r.rank === 1 && r.depth > 0);
+    window.KrDiver.paintZones(lane.querySelector(".kr-lane-water"), scale, compact);
+    lane.querySelector(".kr-lane-line").style.setProperty("--d", String(Math.round((r.depth / scale) * 1000) / 10));
+    lane.querySelector(".kr-lane-marker").textContent = `${numberText(r.depth)} m`;
+    if (!fresh && Number.isFinite(before) && r.depth > before) window.KrDiver.sink(lane.querySelector(".kr-diver"));
+  }
+
+  function buildLanes(box, seated, icon) {
     box.replaceChildren();
     box.appendChild(el("div", "kr-reef-axis"));
     const lanes = el("div", "kr-reef-lanes");
@@ -147,6 +156,7 @@ const KrView = (function () {
       lane.appendChild(el("span", "kr-lane-name", r.name));
       const water = el("div", "kr-lane-water");
       const line = el("div", "kr-lane-line");
+      line.appendChild(window.KrDiver.make(icon, "kr-lane-diver"));
       line.appendChild(el("span", "kr-lane-marker"));
       water.appendChild(line);
       lane.appendChild(water);
@@ -275,7 +285,10 @@ const KrView = (function () {
     setText("kr-bar-title", brand.name);
     setText("kr-hero", brand.name);
     setText("kr-tagline", brand.tagline);
+    window.KrDiver.paintSlot($("kr-hero-mark"), brand.icon || "", "kr-diver-hero");
   }
+
+  const iconOf = (state) => brandFor(state).icon || "";
 
   function setupWarning(state) {
     const n = state.setup.players.length;
@@ -292,6 +305,7 @@ const KrView = (function () {
       ? `${state.game.prompts.length} prompts with rated answers.` : "No prompts loaded yet.");
     renderPlayers(state);
     renderSettings(state);
+    window.KrDiver.paintSetup(state);
     const problem = core().settingsProblem(state.setup.settings);
     setText("kr-setup-warn", setupWarning(state));
     setText("kr-names-warn", problem ? `Fix this before you start: ${problem}` : "");
@@ -464,6 +478,16 @@ const KrView = (function () {
 
   let lastRevealKey = "";
 
+  /** A short reaction to the answer just revealed (fixed per reveal, so re-renders keep it). */
+  function revealQuip(c, order) {
+    const g = c.dive.revealed ? order[c.dive.revealed - 1] : null;
+    if (!g) return "";
+    const tiers = core().tiersOf(c);
+    const at = g.tier ? tiers.findIndex((t) => t.id === g.tier) : -1;
+    const mood = window.KrFlavour.tierMood(at, tiers.length);
+    return window.KrFlavour.revealLine(mood, c.round * 7 + c.dive.revealed);
+  }
+
   function renderReveal(state) {
     const c = state.core;
     setText("kr-reveal-text", `${roundLine(c)} — ${c.dive.text}`);
@@ -491,7 +515,8 @@ const KrView = (function () {
     if (newest && newest.scrollIntoView) newest.scrollIntoView({ block: "nearest" });
     setText("kr-tally", c.dive.revealed ? tallyText(c, true) : "");
     renderList(state, c);
-    renderReef($("kr-reef"), core().depthBoard(c));
+    setText("kr-quip", revealQuip(c, order));
+    renderReef($("kr-reef"), core().depthBoard(c), iconOf(state));
     const btn = $("btn-reveal");
     btn.disabled = pending > 0;
     btn.textContent = pending > 0 ? "Rule every answer first"
@@ -508,7 +533,8 @@ const KrView = (function () {
     setText("kr-depth-sub", `After prompt ${c.round} of ${c.game.settings.promptsPerGame} · `
       + `${lead.map((r) => r.name).join(" & ")} ${lead.length > 1 ? "share the lead" : "leads"} at ${numberText(lead[0].depth)} m`);
     setText("kr-depth-tally", `This prompt: ${tallyText(c, false)}`);
-    renderReef($("kr-depth-reef"), board);
+    setText("kr-depth-quip", window.KrFlavour.boardLine(lead[0].depth, c.round));
+    renderReef($("kr-depth-reef"), board, iconOf(state));
     $("btn-next-prompt").textContent = last ? "Final result" : "Next prompt";
   }
 
@@ -526,12 +552,14 @@ const KrView = (function () {
     setText("kr-winner-sub", !top ? "" : (puffer
       ? `${top.hearts} ${top.hearts === 1 ? "heart" : "hearts"} left${winners.length > 1 ? " each" : ""}.`
       : `${numberText(top.depth)} m down${winners.length > 1 ? " — a shared win" : ""}.`));
+    resultDiver(state, c);
     const list = $("kr-standings");
     list.replaceChildren();
     rows.forEach((r) => {
       const isWinner = c.winners.indexOf(r.pid) >= 0;
       const li = el("li", `kr-standing${r.rank <= 3 ? " is-podium" : ""}${isWinner ? " is-winner" : ""}`);
       li.appendChild(el("span", "kr-standing-rank", String(r.rank)));
+      if (isWinner && winners.length <= 3) li.appendChild(window.KrDiver.make(iconOf(state), "kr-standing-diver"));
       li.appendChild(el("span", "kr-standing-name", r.name));
       if (isWinner) li.appendChild(el("span", "kr-badge", "winner"));
       li.appendChild(el("span", "kr-standing-value", puffer
@@ -539,6 +567,19 @@ const KrView = (function () {
       list.appendChild(li);
     });
     $("btn-result-undo").disabled = !c.history.length;
+  }
+
+  let lastResultKey = "";
+
+  /** The winner's diver above the headline: one flourish when the result first appears. */
+  function resultDiver(state, c) {
+    const slot = $("kr-result-diver");
+    const repainted = window.KrDiver.paintSlot(slot, iconOf(state), "kr-diver-result");
+    const key = `${c.winners.join(",")}|${c.history.length}`;
+    if (key !== lastResultKey || repainted) {
+      lastResultKey = key;
+      window.KrDiver.flourish(slot.firstChild, "is-cheer");
+    }
   }
 
   /* ============ Whole page ============ */
@@ -578,7 +619,7 @@ const KrView = (function () {
 
   return {
     render, screenFor, brandFor, renderReef, tierButtons, rememberButton, renderList, tierName, numberText,
-    isCompact, isNarrow, DENSE_PLAYERS,
+    isCompact, isNarrow, DENSE_PLAYERS, iconOf,
   };
 })();
 

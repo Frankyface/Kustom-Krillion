@@ -16,6 +16,9 @@
 (function () {
   let room = null;
   let lastSent = {};      // pid -> serialised view, so we only send on change
+  let iconSent = {};      // pid -> the diver icon this connection already has ("" = the krill)
+  // The transport refuses payloads over 32 KB; a bigger icon stays on the host and phones use the krill.
+  const PHONE_ICON_MAX = 30000;
   let embedded = false;
 
   const core = () => window.KrCore;
@@ -27,6 +30,7 @@
     if (!player || !player.pid) return;
     // A phone that (re)appears has a blank screen: forget what we last sent it.
     delete lastSent[player.pid];
+    delete iconSent[player.pid];
     const c = window.KrApp.core();
     if (c) {
       if (!c.players.some((p) => p.pid === player.pid)) {
@@ -41,6 +45,7 @@
 
   function onPlayerStatus(pid, connected) {
     delete lastSent[pid];
+    delete iconSent[pid];
     countPhones();
     if (connected) pushViews(window.KrApp.core());
   }
@@ -66,7 +71,7 @@
   function onMessage(pid, raw) {
     const msg = core().validatePhoneMsg(raw);
     if (!msg) return;                       // junk frame: ignored, never thrown
-    if (msg.t === "ready") { delete lastSent[pid]; pushViews(window.KrApp.core()); return; }
+    if (msg.t === "ready") { delete lastSent[pid]; delete iconSent[pid]; pushViews(window.KrApp.core()); return; }
     const state = window.KrApp.core();
     if (!state || !core().phoneMaySend(state, pid, msg.t) || !has(EVENTS, msg.t)) return;
     window.KrApp.dispatch(EVENTS[msg.t](pid, msg));
@@ -79,6 +84,7 @@
     const now = Date.now();
     room.players().forEach((p) => {
       if (p.manual) return;
+      sendIcon(p.pid);
       const view = state
         ? Object.assign({ t: "view" }, core().phoneView(state, p.pid, now))
         : { t: "view", screen: "wait", sub: "The host is still setting up.", brand: window.KrApp.brand().name };
@@ -87,6 +93,16 @@
       lastSent[p.pid] = key;
       room.send(p.pid, view);
     });
+  }
+
+  /** The host's diver icon, once per connection (again only if the host changes it). */
+  function sendIcon(pid) {
+    const brand = window.KrApp.brand();
+    const icon = brand.icon && brand.icon.length <= PHONE_ICON_MAX ? brand.icon : "";
+    const had = has(iconSent, pid) ? iconSent[pid] : "";
+    if (has(iconSent, pid) && had === icon) return;
+    iconSent[pid] = icon;
+    if (icon || had) room.send(pid, { t: "icon", icon });
   }
 
   function reportProgress(state) {

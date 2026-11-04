@@ -342,7 +342,7 @@ let krSyncedNaming = "";
 function krSyncNaming(fresh) {
   const setup = window.KrApp.state().setup;
   const sig = JSON.stringify([setup.settings.brand, setup.settings.tiers.map((t) => [t.id, t.name])]);
-  if (fresh || (setup.namesTouched && sig !== krSyncedNaming)) {
+  if (fresh || ((setup.namesTouched || setup.iconTouched) && sig !== krSyncedNaming)) {
     krDraft = window.KrCore.withNaming(krDraft, setup.settings);
     krSaveDraft();
   }

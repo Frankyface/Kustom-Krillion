@@ -29,7 +29,10 @@ approaches without new evidence, then record a blocker and do independent work.
 
 ## Checks
 - Unit: `node --test "tests/**/*.test.mjs"`
-- Loopback: serve the root, open `tests/harness.html`, run all (KR-I1…I6).
+- Loopback: serve the root, open `tests/harness.html` in a window at least
+  1300 px wide (the host frame is 100% wide; a narrow window triggers the phone
+  layout and false 1280×720 failures).
+- Stress: `tests/stress.html?phones=40` (same window rule), expect 35 checks.
 - Browser: open `/`; host-only Deep Dive, Puffer round, editor, library; phone
   flow via a second tab on the room link.
 - Hygiene: grep for innerHTML-family APIs; `wc -l js/*.js` < 800.

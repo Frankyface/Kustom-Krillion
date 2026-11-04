@@ -22,6 +22,7 @@
   let clockEnds = null;
   let clockTimer = 0;
   let ratedOpen = false;
+  let icon = "";            // the host's diver picture, sent once per connection and re-checked here
 
   const KICKERS = {
     wait: "", answer: "Your answer", reveal: "Your dive", "puffer-hold": "You have the puffer",
@@ -63,9 +64,17 @@
   function paintStanding(extra) {
     const s = view.standing;
     if (!s || typeof s !== "object") return;
-    const card = el("div", "kr-phone-standing");
+    const dive = Number.isFinite(s.points) && Number.isFinite(s.depth);
+    const outer = el("div", `kr-phone-standing${dive ? " has-gauge" : ""}`);
+    // Deep Dive: the depth gauge on the left with the diver at this phone's depth, the words beside it.
+    if (dive) outer.appendChild(window.KrDiver.gauge(s.depth, icon));
+    const card = dive ? el("div", "kr-phone-standing-text") : outer;
+    if (dive) outer.appendChild(card);
     card.appendChild(el("p", "kr-phone-place", String(s.place || "")));
-    if (Number.isFinite(s.points)) card.appendChild(el("p", "kr-phone-total", `${num(s.depth)} m deep · ${num(s.points)} points`));
+    if (dive) {
+      card.appendChild(el("p", "kr-phone-total", `${num(s.depth)} m deep · ${num(s.points)} points`));
+      card.appendChild(el("p", "kr-phone-zone", window.KrFlavour.phoneLine(s.depth)));
+    }
     if (Number.isFinite(s.hearts)) {
       card.appendChild(el("p", "kr-phone-total", `${s.hearts} ${s.hearts === 1 ? "heart" : "hearts"} · meter ${s.meter || 0} of ${s.meterFor || 10}`));
     }
@@ -75,7 +84,7 @@
       card.appendChild(el("p", "kr-phone-label", "Top of the board"));
       list(card, rows, "kr-phone-standings");
     }
-    extra.appendChild(card);
+    extra.appendChild(outer);
   }
 
   function ratedRow(item) {
@@ -116,6 +125,7 @@
       const card = el("div", `kr-phone-result${view.miss ? " is-miss" : ""}`);
       card.appendChild(el("p", "kr-phone-tier", view.tier || ""));
       card.appendChild(el("p", "kr-phone-points", view.miss ? "0 points" : `+${view.points} points`));
+      if (view.miss) card.appendChild(el("p", "kr-phone-quip", window.KrFlavour.revealLine("miss", view.depth)));
       if (view.mine) card.appendChild(el("p", "kr-phone-mine", `You said: ${view.mine}`));
       card.appendChild(el("p", "kr-phone-depth", `You are ${Number(view.depth || 0).toLocaleString("en-US")} m deep`));
       extra.appendChild(card);
@@ -178,6 +188,12 @@
   }
 
   function onMessage(raw) {
+    if (raw && typeof raw === "object" && raw.t === "icon") {
+      // Same rule as the host's files: a small base64 png/jpeg/webp/gif data URL, else the krill.
+      icon = window.KrCore.cleanIcon(raw.icon);
+      render();
+      return;
+    }
     if (!raw || typeof raw !== "object" || raw.t !== "view") return;
     view = raw;
     render();
@@ -211,6 +227,7 @@
     window.KrPhone = {
       me, onMessage,
       view: () => view,
+      icon: () => icon,
       promptText: () => $("kr-phone-prompt").textContent,
       type: (text) => { $("kr-phone-text").value = text; },
       button: () => $("btn-phone-send"),

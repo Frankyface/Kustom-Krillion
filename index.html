@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="shared/theme.css">
   <link rel="stylesheet" href="css/kr.css">
   <link rel="stylesheet" href="css/kr-phone.css">
+  <link rel="stylesheet" href="css/kr-diver.css">
 </head>
 <body data-gsc-game="krillion">
 
@@ -31,7 +32,10 @@
     <!-- ===================== Setup ===================== -->
     <section id="screen-setup" class="kr-screen kr-setup">
       <div class="kr-setup-head">
-        <h2 id="kr-hero" class="kr-hero">Deep Cut</h2>
+        <div class="kr-hero-row">
+          <span id="kr-hero-mark" class="kr-hero-mark" aria-hidden="true"></span>
+          <h2 id="kr-hero" class="kr-hero">Deep Cut</h2>
+        </div>
         <p id="kr-tagline" class="kr-tagline"></p>
         <p class="kr-lede">Everyone answers the same prompt. Each answer is checked against a rated list &mdash;
           the rarer it is, the deeper you dive. Add the players, pick a mode and press Start.</p>
@@ -84,6 +88,18 @@
             <select id="kr-set-preset" class="kr-field"></select></label>
           <div id="kr-set-tiers" class="kr-tier-rows" role="group" aria-label="Tier names and points"></div>
           <p id="kr-names-warn" class="kr-hint kr-warn" role="status"></p>
+          <div class="kr-icon-pick" role="group" aria-labelledby="kr-icon-label">
+            <h4 id="kr-icon-label" class="kr-label">Diver icon</h4>
+            <div class="kr-icon-row">
+              <span id="kr-icon-preview" class="kr-icon-preview"></span>
+              <div class="kr-icon-actions">
+                <button id="btn-icon-upload" class="kr-btn kr-btn-line kr-btn-sm" type="button">Upload image</button>
+                <button id="btn-icon-default" class="kr-btn kr-btn-quiet kr-btn-sm" type="button">Use the default</button>
+                <input id="kr-icon-file" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Diver icon picture" tabindex="-1">
+              </div>
+            </div>
+            <p id="kr-icon-msg" class="kr-hint" role="status">Everyone dives as the krill, unless you upload a picture (PNG, JPEG, WebP or GIF; it is shrunk to 96&nbsp;&times;&nbsp;96).</p>
+          </div>
         </div>
 
         <div class="kr-panel">
@@ -160,6 +176,7 @@
         <p id="kr-reveal-text" class="kr-prompt-sm">&nbsp;</p>
         <p id="kr-reveal-state" class="kr-meta" role="status" aria-live="polite">&nbsp;</p>
         <p id="kr-tally" class="kr-tally">&nbsp;</p>
+        <p id="kr-quip" class="kr-quip"></p>
       </div>
       <div class="kr-reveal-body">
         <section id="kr-queue-box" class="kr-queue hidden" aria-label="Judge's review">
@@ -187,6 +204,7 @@
         <h2 id="kr-depth-title" class="kr-title">Depth board</h2>
         <p id="kr-depth-sub" class="kr-meta">&nbsp;</p>
         <p id="kr-depth-tally" class="kr-tally">&nbsp;</p>
+        <p id="kr-depth-quip" class="kr-quip"></p>
       </div>
       <div id="kr-depth-reef" class="kr-reef kr-reef-full" aria-label="Depth board" aria-live="polite"></div>
       <div class="kr-actions">
@@ -234,6 +252,7 @@
 
     <!-- ===================== Result ===================== -->
     <section id="screen-result" class="kr-screen kr-center hidden">
+      <span id="kr-result-diver" class="kr-result-diver" aria-hidden="true"></span>
       <p id="kr-result-kicker" class="kr-meta">&nbsp;</p>
       <h2 id="kr-winner" class="kr-hero">&nbsp;</h2>
       <p id="kr-winner-sub" class="kr-lede">&nbsp;</p>
@@ -333,6 +352,7 @@
 
   <!-- ============ Title card (standalone only; the hub shows its own) ============ -->
   <div id="gsc-splash" class="kr-splash hidden" role="status" aria-live="polite">
+    <span id="gsc-splash-mark" class="kr-splash-mark" aria-hidden="true"></span>
     <p id="gsc-splash-title" class="kr-hero"></p>
     <p id="gsc-splash-sub" class="kr-lede"></p>
   </div>
@@ -347,10 +367,12 @@
   <script src="js/kr-content.js"></script>
   <script src="js/kr-select.js"></script>
   <script src="js/kr-core.js"></script>
+  <script src="js/kr-flavour.js"></script>
   <script src="js/data.js"></script>
   <script src="js/kr-sound.js"></script>
   <script src="js/kr-clock.js"></script>
   <script src="js/kr-view.js"></script>
+  <script src="js/kr-diver.js"></script>
   <script src="js/kr-party.js"></script>
   <script src="js/kr-app.js"></script>
   <script src="js/kr-editor.js"></script>

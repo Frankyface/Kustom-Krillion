@@ -16,6 +16,8 @@ any lead figure, so they are not double-counted.
 | R3 | subagent, opus | reviewer, F001 + F002 @ 9c3ec1c | task notification (subagent_tokens) | UNALLOCATED (F001+F002 review, not split) | unknown | unknown | 144,834 | complete for that agent | superseded by R5 |
 | R5 | subagent, opus (resumed, same counter as R3) | reviewer, 3 rounds | task notification, cumulative 164,501 | UNALLOCATED | unknown | unknown | 164,501 | complete for that agent | reconciled |
 | R6 | subagent, sonnet (resumed, same counter as R2/R4) | implementer F002-P1–P3 | task notification, cumulative 250,889 | F002 | unknown | unknown | 250,889 | complete for that agent | reconciled |
+| R7 | subagent, sonnet | implementer A1 (F005, F006, F004 stress) | task notification (subagent_tokens) | UNALLOCATED (F004+F005+F006, not split) | unknown | unknown | 189,104 | complete for that agent | reconciled |
+| R8 | subagent, sonnet | implementer A2 (F007, F004 layouts) | task notification (subagent_tokens) | UNALLOCATED (F004+F007, not split) | unknown | unknown | 226,658 | complete for that agent | reconciled |
 
 ## Summaries (rebuilt from records)
 | Scope | Recorded total | Coverage |
@@ -24,5 +26,5 @@ any lead figure, so they are not double-counted.
 | F002 | 250,889 (R6) | partial (lead share unknown; review in UNALLOCATED) |
 | F003 | 0 recorded | lead share unknown |
 | SHARED | 0 recorded | lead unknown |
-| UNALLOCATED | 164,501 (R5) | complete for R5 |
-| **Project** | **415,390 recorded** + unknown lead usage | partial |
+| UNALLOCATED | 580,263 (R5 + R7 + R8) | complete for those agents; round-2 features not split |
+| **Project** | **831,152 recorded** + unknown lead usage | partial |

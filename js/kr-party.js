@@ -53,9 +53,25 @@ const KrParty = (function () {
       seat.appendChild(el("span", "kr-seat-status", s.out ? "out"
         : `${s.hearts} ${s.hearts === 1 ? "heart" : "hearts"} · ${s.meter}/${need}`));
       if (s.holder && !s.out) seat.appendChild(el("span", "kr-seat-status", "has the puffer"));
+      seatDiver(c, s, seat);
       ring.appendChild(seat);
       if (compact && s.holder && seat.scrollIntoView) seat.scrollIntoView({ block: "nearest" });
     });
+  }
+
+  let lastPopKey = "";
+
+  /** The holder carries the diver; the seat that just popped gets it with one gentle puff. */
+  function seatDiver(c, s, seat) {
+    const popped = c.phase === "popped" && c.puffer.popped === s.pid;
+    if (!popped && !(s.holder && !s.out && c.phase !== "popped")) return;
+    const diver = window.KrDiver.make(window.KrView.iconOf(window.KrApp.state()), "kr-seat-diver");
+    seat.insertBefore(diver, seat.firstChild);
+    if (!popped) return;
+    const key = `${c.round}|${s.pid}|${c.history.length}`;
+    if (key === lastPopKey) return;
+    lastPopKey = key;
+    window.KrDiver.flourish(diver, "is-pop");
   }
 
   function renderPending(c) {

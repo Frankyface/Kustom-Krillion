@@ -5,8 +5,9 @@
    under localStorage key `kk-sound` (architecture 00 §10).
 
    The palette is underwater: a sonar ping when an answer lands,
-   a soft bubble for each reveal, a low sting rolling into the
-   deep for the deepest tier, a dull thud for a miss and a sharp
+   a run of bubbles for each reveal (lower ones for the deeper
+   tiers), a long fall and a far-off ping for the deepest tier,
+   a sonar sweep for the depth board, a dull thud for a miss and a sharp
    pop when the puffer goes off.
    ============================================================ */
 
@@ -74,11 +75,22 @@
     ping() { tone(1320, 0.5, { volume: 0.12 }); tone(1320, 0.4, { volume: 0.04, delay: 0.22 }); },
     dive() { tone(330, 0.6, { type: "triangle", slideTo: 165, volume: 0.12 }); },
     close() { tone(660, 0.12, { type: "triangle", volume: 0.1 }); tone(440, 0.2, { type: "triangle", volume: 0.1, delay: 0.1 }); },
-    bubble() { tone(420, 0.16, { slideTo: 900, volume: 0.1 }); },
-    abyss() {
-      tone(220, 1.2, { type: "sawtooth", slideTo: 55, volume: 0.1 });
-      tone(880, 0.9, { volume: 0.08, delay: 0.3 });
+    // Three small bubbles, each a quick upward chirp, rising a little in pitch.
+    bubble() { [380, 520, 660].forEach((f, i) => tone(f, 0.12, { slideTo: f * 2.1, volume: 0.08, delay: i * 0.075 })); },
+    // A deeper tier: slower, lower bubbles with a soft hum underneath.
+    deep() {
+      [260, 340].forEach((f, i) => tone(f, 0.18, { slideTo: f * 1.9, volume: 0.08, delay: i * 0.11 }));
+      tone(110, 0.7, { volume: 0.06, delay: 0.05 });
     },
+    // The rarest tier: a long fall into the dark, a sub-bass swell and one far-off sonar answer.
+    abyss() {
+      tone(196, 1.6, { slideTo: 41, volume: 0.13 });
+      tone(98, 1.4, { type: "triangle", slideTo: 36, volume: 0.09, delay: 0.1 });
+      tone(1175, 0.9, { volume: 0.05, delay: 0.75 });
+      tone(1175, 0.7, { volume: 0.02, delay: 1.1 });
+    },
+    // The depth board: a soft sonar sweep and its echo.
+    sonar() { tone(990, 0.6, { slideTo: 940, volume: 0.07 }); tone(990, 0.5, { slideTo: 940, volume: 0.025, delay: 0.38 }); },
     miss() { tone(140, 0.3, { type: "square", slideTo: 90, volume: 0.07 }); },
     pass() { tone(700, 0.08, { type: "triangle", volume: 0.1 }); tone(1050, 0.12, { type: "triangle", volume: 0.1, delay: 0.07 }); },
     heart() { [523, 659, 784].forEach((f, i) => tone(f, 0.18, { type: "triangle", volume: 0.1, delay: i * 0.08 })); },

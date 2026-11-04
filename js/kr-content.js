@@ -7,7 +7,7 @@
    each carrying a depth tier (Shallows … Abyss by default; the
    host can rename them) plus optional aliases; an answer on the
    list takes its tier automatically, anything else goes to the
-   judge. The game's name and tagline live in settings.brand.
+   judge. The game's name, tagline and diver icon live in settings.brand.
 
    No DOM, no timers, no randomness of its own (an `rng` is
    injected) and nothing here mutates the caller's objects.
@@ -56,6 +56,10 @@
   const BRAND_NAME_MAX = 30;
   const BRAND_TAGLINE_MAX = 60;
   const DEFAULT_BRAND = Object.freeze({ name: "Deep Cut", tagline: "The rarest answer wins." });
+  /** The host's diver icon: a small base64 image data URL, shown only through <img src>. */
+  const ICON_MAX = 60000;
+  const ICON_PATTERN = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
+  const ICON_DROPPED = "The diver icon in this file isn’t a small PNG, JPEG, WebP or GIF image, so it was left out.";
   const MIN_TIERS = 2;
   const MAX_TIERS = 6;
   const TIER_NAME_MAX = 24;
@@ -301,7 +305,27 @@
     };
     const name = field("name", BRAND_NAME_MAX, "name");
     if (!lenient && !name) fail("The game needs a name.");
-    return { name, tagline: field("tagline", BRAND_TAGLINE_MAX, "tagline") };
+    return withIcon({ name, tagline: field("tagline", BRAND_TAGLINE_MAX, "tagline") }, raw.icon);
+  }
+
+  /** The icon if it is a usable image data URL (png/jpeg/webp/gif, base64, ≤ 60 000 chars), else "". */
+  function cleanIcon(raw) {
+    if (typeof raw !== "string" || raw.length > ICON_MAX || raw.length < 30) return "";
+    return ICON_PATTERN.test(raw) ? raw : "";
+  }
+
+  /** A copy of `brand` carrying `icon` when it is usable; an unusable icon is dropped. */
+  function withIcon(brand, icon) {
+    const clean = cleanIcon(icon);
+    return clean ? Object.assign({}, brand, { icon: clean }) : brand;
+  }
+
+  /** The warning to show when a file carries an icon that will be dropped; "" otherwise. */
+  function iconProblem(raw) {
+    const brand = isPlainObject(raw) && isPlainObject(raw.settings) && isPlainObject(raw.settings.brand)
+      ? raw.settings.brand : null;
+    if (!brand || brand.icon === undefined || brand.icon === null || brand.icon === "") return "";
+    return cleanIcon(brand.icon) ? "" : ICON_DROPPED;
   }
 
   /** The brand to put on screen from any settings object: never empty, never throws. */
@@ -309,7 +333,7 @@
     const b = settings && isPlainObject(settings.brand) ? settings.brand : {};
     const name = typeof b.name === "string" ? cleanText(b.name, BRAND_NAME_MAX) : "";
     const tagline = typeof b.tagline === "string" ? cleanText(b.tagline, BRAND_TAGLINE_MAX) : DEFAULT_BRAND.tagline;
-    return { name: name || DEFAULT_BRAND.name, tagline };
+    return withIcon({ name: name || DEFAULT_BRAND.name, tagline }, b.icon);
   }
 
   /* ============ Tier name presets ============ */
@@ -528,6 +552,7 @@
       return [err.message];
     }
     const out = [];
+    if (iconProblem(raw)) out.push(iconProblem(raw));
     const thin = game.prompts.filter((p) => p.answers.length < COMFORTABLE_ANSWERS).length;
     if (thin) out.push(`${thin} prompts have fewer than ${COMFORTABLE_ANSWERS} rated answers, so more goes to the judge.`);
     const gaps = game.prompts.filter((p) => missingTiers(p, game.settings.tiers).length).length;
@@ -590,11 +615,11 @@
   }
 
   return {
-    TIERS, TIER_IDS, LEGACY_TIER_IDS, TIER_PRESETS, DEFAULT_BRAND, BRAND_NAME_MAX, BRAND_TAGLINE_MAX, MIN_TIERS, MAX_TIERS, TIER_NAME_MAX, MODES, DEFAULT_SETTINGS,
+    TIERS, TIER_IDS, LEGACY_TIER_IDS, TIER_PRESETS, DEFAULT_BRAND, ICON_MAX, BRAND_NAME_MAX, BRAND_TAGLINE_MAX, MIN_TIERS, MAX_TIERS, TIER_NAME_MAX, MODES, DEFAULT_SETTINGS,
     PROMPT_MAX, CATEGORY_MAX, ANSWER_MAX, GAME_TITLE_MAX, NAME_MAX, PID_MAX,
     MIN_PROMPTS, MAX_PROMPTS, MIN_ANSWERS, MIN_TIERS_COVERED, MAX_ANSWERS, MAX_ALIASES,
     COMFORTABLE_ANSWERS, METRES_PER_POINT,
-    has, isPlainObject, isIntIn, cleanText, fail, tierList, tierById, isTier, normalizeTiers, normalizeBrand, brandOfSettings, settingsProblem, withNaming, namingDiffers, namingNote, upgradeGame, applyPreset, presetOf,
+    has, isPlainObject, isIntIn, cleanText, fail, tierList, tierById, isTier, normalizeTiers, normalizeBrand, brandOfSettings, cleanIcon, withIcon, iconProblem, settingsProblem, withNaming, namingDiffers, namingNote, upgradeGame, applyPreset, presetOf,
     normaliseAnswer, looseForms, entryKeys, matchAnswer, missingTiers, promptProblem,
     normalizeGame, validateGame, normalizeSettings, settingsOf, warningsFor, applyLearned,
     shuffled, drawOrder,

@@ -97,12 +97,14 @@ function krNote(text) {
 
 const KR_NOTICE_CUES = { pass: "pass", heart: "heart", used: "miss", invalid: "miss", judge: "ping" };
 
+/** The reveal's cue by where the tier sits: a thud, bubbles, a deeper gurgle, the abyss sting; sonar for the board. */
 function krRevealCue(next) {
-  if (next.phase !== "reveal") return "bubble";
+  if (next.phase !== "reveal") return "sonar";
   const g = window.KrCore.revealOrder(next)[next.dive.revealed - 1];
   const tiers = window.KrCore.tiersOf(next);
   if (!g || !g.tier) return "miss";
-  return g.tier === tiers[tiers.length - 1].id ? "abyss" : "bubble";
+  const mood = window.KrFlavour.tierMood(tiers.findIndex((t) => t.id === g.tier), tiers.length);
+  return { rarest: "abyss", deep: "deep" }[mood] || "bubble";
 }
 
 function krCue(event, before, after) {
@@ -291,6 +293,27 @@ async function krLoadContent() {
  * touched) and names (if edited) are kept and the rest follow the file.
  */
 function krSettingsFor(game) {
+  const picked = krSettingsForNames(game);
+  picked.settings = krKeepIcon(picked.settings);
+  return picked;
+}
+
+/** Once the host has picked a diver icon (or the default), a loaded file's icon never replaces it. */
+function krKeepIcon(settings) {
+  if (!krApp.setup.iconTouched) return settings;
+  const b = settings.brand;
+  const brand = window.KrCore.withIcon({ name: b.name, tagline: b.tagline }, krApp.setup.settings.brand.icon);
+  return Object.assign({}, settings, { brand });
+}
+
+/** Store the host's diver icon ("" = the default krill) in the setup; Start over keeps it. */
+function krSetIcon(icon) {
+  const settings = JSON.parse(JSON.stringify(krApp.setup.settings));
+  settings.brand = window.KrCore.withIcon({ name: settings.brand.name, tagline: settings.brand.tagline }, icon);
+  krSetSetup({ settings, iconTouched: true });
+}
+
+function krSettingsForNames(game) {
   const fromFile = window.KrCore.settingsOf(game);
   const setup = krApp.setup;
   const pointsKept = !!setup.settingsTouched;
@@ -318,7 +341,7 @@ function krUseGame(raw, source, kind, url) {
   });
   // A boot-time load carries the "saved game couldn't be read" note once; a host's own load never does.
   const booting = kind === "default" || kind === "url";
-  krError(picked.note || (booting ? krPendingNote : ""));
+  krError([picked.note, window.KrCore.iconProblem(raw)].filter(Boolean).join(" ") || (booting ? krPendingNote : ""));
   krPendingNote = "";
 }
 
@@ -335,7 +358,7 @@ function krUseEditorGame(raw) {
   const fromFile = K.settingsOf(game);
   const sameTiers = fromFile.tiers.map((t) => t.id).join() === picked.settings.tiers.map((t) => t.id).join();
   const tiers = picked.settings.tiers.map((t, i) => (sameTiers ? Object.assign({}, t, { name: fromFile.tiers[i].name }) : t));
-  const settings = Object.assign({}, picked.settings, { brand: fromFile.brand, tiers });
+  const settings = krKeepIcon(Object.assign({}, picked.settings, { brand: fromFile.brand, tiers }));
   const changed = K.namingDiffers(settings, before.settings);
   krSet({
     game, source: "Custom prompts (from the editor)", sourceKind: "editor", sourceUrl: null,
@@ -511,8 +534,10 @@ function krShowSplash(title, sub) {
   if (!node || krReducedMotion()) return;
   setText("gsc-splash-title", title);
   setText("gsc-splash-sub", sub);
+  window.KrDiver.paintSlot($("gsc-splash-mark"), krBrand().icon || "", "kr-diver-splash");
   show(node, true);
-  setTimeout(() => show(node, false), 600);
+  window.KrDiver.bubbles($("gsc-splash-mark").firstChild, 4);
+  setTimeout(() => show(node, false), 1100);
 }
 
 /* ============ Wiring ============ */
@@ -655,6 +680,7 @@ function krBoot() {
     window.GSCIcons.prepend($("btn-game-lobby"), "lobby");
   }
   krWireSetup();
+  window.KrDiver.wireSetup();
   krWireForms();
   krWireKeys();
   krRender();
@@ -694,6 +720,7 @@ window.KrApp = {
   start: krStart,
   resume: krResume,
   showSplash: krShowSplash,
+  setIcon: krSetIcon,
   brand: krBrand,
   save: krSave,
   storeSuffix: krStoreSuffix,
